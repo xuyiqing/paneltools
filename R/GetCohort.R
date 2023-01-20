@@ -1,7 +1,7 @@
 get.cohort <- function(data,
                        D,
                        index,
-                       varname = NULL, #length of 2 c("FirstTreated","Cohort")
+                       varname = NULL, #length of 4 c("FirstTreated","Cohort",'Time_to_Treatment',"Time_to_Exit")
                        entry.time = NULL){
     data.raw <- data
     if(length(D)>1){
@@ -20,21 +20,43 @@ get.cohort <- function(data,
         varname1 <- 'FirstTreat'
         if(varname1 %in% colnames(data)){
             warnings("The variable \"FirstTreat\" will be replaced.\n")
+            data[,varname1] <- NULL
         }
         varname2 <- 'Cohort'
         if(varname2 %in% colnames(data)){
             warnings("The variable \"Cohort\" will be replaced.\n")
+            data[,varname2] <- NULL
+        }
+        varname3 <- "Time_to_Treatment"
+        if(varname3 %in% colnames(data)){
+            warnings("The variable \"Time_to_Treatment\" will be replaced.\n")
+            data[,varname3] <- NULL
+        }
+        varname4 <- "Time_to_Exit"
+        if(varname4 %in% colnames(data)){
+            warnings("The variable \"Time_to_Exit\" will be replaced.\n")
+            data[,varname4] <- NULL
         }
     }
     else{
-        if(length(varname)!=2){
-            stop("\"varname\" should have length 2.")
+        if(length(varname)!=4){
+            stop("\"varname\" should have three elements.")
         }
         if(varname[1] %in% colnames(data)){
-            stop(paste0("Variable ",varname[1]," is already in the data. Specify another group name."))
+            warnings(paste0("Variable ",varname[1]," will be replaced.\n"))
+            data[,varname1] <- NULL
         }
         if(varname[2] %in% colnames(data)){
-            stop(paste0("Variable ",varname[2]," is already in the data. Specify another group name."))
+            warnings(paste0("Variable ",varname[2]," will be replaced.\n"))
+            data[,varname2] <- NULL
+        }
+        if(varname[3] %in% colnames(data)){
+            warnings(paste0("Variable ",varname[3]," will be replaced.\n"))
+            data[,varname3] <- NULL
+        }
+        if(varname[4] %in% colnames(data)){
+            warnings(paste0("Variable ",varname[4]," will be replaced.\n"))
+            data[,varname4] <- NULL
         }        
     }
 
@@ -85,10 +107,10 @@ get.cohort <- function(data,
 
     ## entry time
     if(is.null(entry.time)){
-        stagger <- 1
+        staggered <- 1
     }
     else{
-        stagger <- 0
+        staggered <- 0
         if(!is.list(entry.time)){
             stop("\"entry.time\" should be a list.\n")
         }
@@ -155,10 +177,16 @@ get.cohort <- function(data,
     for (i in 1:N) {
         T.on[, i] <-  get_term(D[, i], I[, i], type = "on")
     }
+    T.off <- matrix(NA, TT, N)
+    for (i in 1:N) {
+        T.off[, i] <-  get_term(D[, i], I[, i], type = "off")
+    }
     
     t.on <- c(T.on)
+    t.off <- c(T.off)
     use.index <- (data[,index.id]-1)*TT + data[,index.time]
     t.on <- t.on[use.index]-1
+    t.off <- t.off[use.index]-1
 
     tr.pos <- which(apply(D, 2, sum) > 0)
     co.pos <- which(apply(D, 2, sum) == 0)
@@ -181,8 +209,12 @@ get.cohort <- function(data,
     }
     data.raw <- merge(data.raw,first.treat,by.x = index.id, by.y = "index.id")
     data.raw[,varname2] <- 'Control'
-    data.raw[,'Time_to_Treatment'] <- t.on
-    if(stagger==1){
+    data.raw[,varname3] <- t.on
+    if(sum(!is.na(t.off))>0){
+        data.raw[,varname4] <- t.off
+    }
+
+    if(staggered==1){
         all.first.treat <- sort(unique(data.raw[,varname1]))
         for(sub.first in all.first.treat){
             cohort.name <- paste0("Cohort:",sub.first)
@@ -192,9 +224,8 @@ get.cohort <- function(data,
     else{
         for(sub.time in entry.time){
             cohort.name <- paste0("Cohort:",sub.time[1],'-',sub.time[2])
-            data.raw[which(data.raw[,varname1]>=sub.time[1] & data.raw[,varname1]<=sub.time[2]),varname2] <- cohort.name
+            data.raw[intersect(which(data.raw[,varname1]>=sub.time[1]),which(data.raw[,varname1]<=sub.time[2])),varname2] <- cohort.name
         }
-        
         cohort.name <- "Cohort:Other"
         data.raw[which(!is.na(data.raw[,varname1]) & data.raw[,varname2] == 'Control'),varname2] <- cohort.name     
     }
@@ -208,7 +239,6 @@ get_term <- function(d,
                      type = "on") {
     dd <- d
     iii <- ii
-    ## dd <- dd[which(iii == 1)]
     first.pos <- min(which(iii == 1))
     if (first.pos != 1) {
         dd <- dd[-(1:(first.pos-1))]
@@ -249,7 +279,8 @@ get_term <- function(d,
                 else {
                     if (i %% 2 == 0) {
                         part.term <- 1:(change.pos[i] - change.pos[i-1])
-                    } else {
+                    } 
+                    else {
                         part.term <- (change.pos[i-1] - change.pos[i] + 1):0
                     }
                 }
@@ -259,11 +290,7 @@ get_term <- function(d,
         else if (dd[1] == 1) {
             for (i in 1:(change.length)) {
                 if (i == 1) {
-                    #if (type == "on") {
-                    #    part.term <- 1:(change.pos[i] - 1)
-                    #} else if (type == "off") {
                     part.term <- rep(NA, change.pos[i] - 1)
-                    #}
                 } 
                 else {
                     if (i %% 2 == 0) {
@@ -283,7 +310,6 @@ get_term <- function(d,
             term <- c(term, 1:(T - change.pos[change.length] + 1))
         }
     }
-    ## term.all <- rep(NA, length(d))
     if (first.pos != 1) {
         term <- c(rep(NA, (first.pos - 1)), term)
     }
