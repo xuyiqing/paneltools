@@ -257,6 +257,9 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
   
   # data
   data <- as.data.frame(data)
+  if(!is.null(xlim)){
+    data <- data[which(data[,Period]>=xlim[1] & data[,Period]<=xlim[2]),]
+  }
   time <- data[,Period]
   ATT <- data[,Estimate]
   se <- data[,SE]
@@ -325,23 +328,24 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
   }
   
   # time
-  T0.fill <- NULL
-  if (min(time) >= 0){
-    stop("\"time\" must be relative to treatment.")
-  }
-  if (0%in%time == FALSE){
-    message("No coefficient for period 0.")
-    T0.fill <- max(which(time<0))
-    time <- append(time,0,T0.fill)
-    ATT <- append(ATT,0,T0.fill)
-    CI.lower <- append(CI.lower,0,T0.fill)
-    CI.upper <- append(CI.upper,0,T0.fill)
-    count.num <- append(count.num,0,T0.fill)
-  }
+  #T0.fill <- NULL
+  #if (min(time) >= 0){
+  #  stop("\"time\" must be relative to treatment.")
+  #}
+  #if (0%in%time == FALSE){
+  #  message("No coefficient for period 0.")
+  #  T0.fill <- max(which(time<0))
+  #  time <- append(time,0,T0.fill)
+  #  ATT <- append(ATT,0,T0.fill)
+  #  CI.lower <- append(CI.lower,0,T0.fill)
+  #  CI.upper <- append(CI.upper,0,T0.fill)
+  #  count.num <- append(count.num,0,T0.fill)
+  #}
   
   p.value <- c(p.value,rep(0,length(time)-length(p.value)))
   
-  data <- cbind.data.frame(time = time, ATT = ATT, CI.lower = CI.lower,CI.upper=CI.upper,count=count.num,p.value = p.value)
+  data <- cbind.data.frame(time = time, ATT = ATT, CI.lower = CI.lower,
+                           CI.upper=CI.upper,count=count.num,p.value = p.value)
   
   p <- ggplot(data)
   
@@ -349,16 +353,19 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
   
   if(carryoverTest== TRUE){
     best.pos <- 0
-  }else{
+  }
+  else{
     best.pos <- 1
   }
   
   if (length(max.count.pos)>1) {
     if (best.pos %in% max.count.pos) {
       max.count.pos <- best.pos
-    } else if ((1-best.pos) %in% max.count.pos) {
+    } 
+    else if ((1-best.pos) %in% max.count.pos) {
       max.count.pos <- 1-best.pos
-    } else {
+    } 
+    else {
       max.count.pos <- max.count.pos[1]
     }
   }
@@ -389,11 +396,13 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
   p <- p + geom_vline(xintercept = 0.5, colour=lcolor,size = lwidth*0.7)    
   p <- p + geom_pointrange(data = data, aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, color="black", fill="black",fatten = 2)
   
-  if (is.null(T0.fill) == TRUE){
-    T0 <- which(data[,"time"] == 0)
-  }else{
-    T0 <- which(data[,"time"] == 0)-1
-  }
+  T0 <- which(data[,"time"] == 0)
+  #if (is.null(T0.fill) == TRUE){
+  #  T0 <- which(data[,"time"] == 0)
+  #}
+  #else{
+  #  T0 <- which(data[,"time"] == 0)-1
+  #}
   
   
   maintext <- "Estimated ATT"
@@ -430,9 +439,9 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
     if (length(carryover.period)>2){
       stop("You misspecified \"carryover.period\".")
     }
-    if (is.null(T0.fill)!=TRUE){
-      T0 <- T0+1
-    }
+    #if (is.null(T0.fill)!=TRUE){
+    #  T0 <- T0+1
+    #}
     if (length(carryover.period)==1){
       carryover.period <- (T0+1):(T0+carryover.period)
     }else{
@@ -529,13 +538,11 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
     p <- p + ylim(ylim = ylim)
   }
 
-  if(!is.null(xlim) == TRUE){
-    p <- p + xlim(xlim)
-  }
   # title
   if (is.null(main) == TRUE) {
     p <- p + ggtitle(maintext)
-  } else if (main!=""){
+  } 
+  else if (main!=""){
     p <- p + ggtitle(main)
   }
   
@@ -545,8 +552,6 @@ coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
   else{
     p <- p + scale_x_continuous(breaks=c(data[,'time']))
   }
-  
-
 
   
   
