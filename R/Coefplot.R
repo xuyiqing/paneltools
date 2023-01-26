@@ -1,27 +1,35 @@
 ## new coefplot
 # x: time ATT CI.lower CI.upper p.value count CI.lower.90 CI.upper.90
-coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
-                      placeboTest = FALSE,
-                      placebo.period = NULL,
-                      carryoverTest = FALSE,
-                      carryover.period = NULL,
-                      count = NULL,
-                      stats = NULL, # "none", "F.p", "F.equiv.p", "placebo.p", "carryover.p", "equiv.p"
-                      stats.labs = NULL,
-                      main = NULL,
-                      xlim = NULL,
-                      ylim = NULL,
-                      xlab = NULL, 
-                      ylab = NULL,
-                      gridOff = FALSE,
-                      stats.pos = NULL,
-                      theme.bw = TRUE,
-                      cex.main = NULL,
-                      cex.axis = NULL,
-                      cex.lab = NULL, 
-                      cex.text = NULL,
-                      axis.adjust = FALSE,
-                      ...){
+coefplot <- function(data,# time ATT CI.lower CI.upper p.value count
+                     Period, 
+                     Estimate,
+                     SE,
+                     CI.lower = NULL,
+                     CI.upper = NULL,
+                     p.value = NULL,
+                     Count = NULL,
+                     fill.gap = TRUE,
+                     placeboTest = FALSE,
+                     placebo.period = NULL,
+                     carryoverTest = FALSE,
+                     carryover.period = NULL,
+                     show.count = NULL,
+                     stats = NULL, # "none", "F.p", "F.equiv.p", "placebo.p", "carryover.p", "equiv.p"
+                     stats.labs = NULL,
+                     main = NULL,
+                     xlim = NULL,
+                     ylim = NULL,
+                     xlab = NULL, 
+                     ylab = NULL,
+                     gridOff = FALSE,
+                     stats.pos = NULL,
+                     theme.bw = TRUE,
+                     cex.main = NULL,
+                     cex.axis = NULL,
+                     cex.lab = NULL, 
+                     cex.text = NULL,
+                     axis.adjust = FALSE,
+                     ...){
   
   scaleFUN <- function(x) sprintf("%.f", x)
   
@@ -46,11 +54,11 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
   }
   
   # count
-  if (is.logical(count) == FALSE & is.numeric(count)==FALSE & is.null(count)==FALSE) {
-    stop("\"count\" is not a logical flag.")
+  if (is.logical(show.count) == FALSE & is.numeric(show.count)==FALSE & is.null(show.count)==FALSE) {
+    stop("\"show.count\" is not a logical flag.")
   }
-  if (is.null(count)==TRUE){
-    count <- FALSE
+  if (is.null(show.count)==TRUE){
+    show.count <- FALSE
   }
   
   # gridOff
@@ -248,36 +256,71 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
   }
   
   # data
-  time <- x$time
-  ATT <- x$ATT
-  CI.lower <- x$CI.lower
-  CI.upper <- x$CI.upper
-  count.num <- x$count
-  p.value <- x$p.value
+  data <- as.data.frame(data)
+  time <- data[,Period]
+  ATT <- data[,Estimate]
+  se <- data[,SE]
+  if(!is.null(CI.lower)){
+    CI.lower <- data[,CI.lower]
+  }
+  if(!is.null(CI.upper)){
+    CI.upper <- data[,CI.upper]
+  }
+
+  if(!is.null(Count)){
+    count.num <- data[,Count]
+  }
+  else{
+    count.num <- rep(0,length(time))
+  }
   
+  if(!is.null(se)){
+    if(is.null(CI.lower)){
+      CI.lower <- ATT - 1.96*se
+    }
+    if(is.null(CI.upper)){
+      CI.upper <- ATT + 1.96*se
+    }
+  }
+
+  # add default zero
+  time_lag <- max(time)-min(time)+1
+  if(fill.gap){
+    if(time_lag>dim(data)[1]){
+      time.add <- setdiff(c(min(time):max(time)),time)
+      time <- c(time,time.add)
+      ATT <- c(ATT,rep(0,length(time.add)))
+      se <- c(se,rep(0,length(time.add)))
+      CI.lower <- c(CI.lower,rep(0,length(time.add)))
+      CI.upper <- c(CI.upper,rep(0,length(time.add)))
+      count.num <- c(count.num,rep(0,length(time.add)))
+    }    
+  }
+
   # Length of variables
   if (!(length(ATT)==length(time) & length(CI.lower)==length(time) & length(CI.upper)==length(time))){
     stop("The length of time, ATT, and uncertainty estimations must be the same.")
-  }else{
-    if (count == TRUE & !(length(count.num)==length(time))){
+  }
+  else{
+    if (show.count == TRUE & !(length(count.num)==length(time))){
     stop("The length of time and observation counts must be the same.")
     }
   }
   
   # p.value
   if (length(p.value) < length(stats.labs)){
-    stop(paste0("Missing statistics \"",stats.labs[length(p.value)+1],"\" in \"x\"."))
+    stop(paste0("Missing statistics \"",stats.labs[length(p.value)+1],"\" in \"p.value\"."))
   }
   
   
   # count
   if (is.null(count.num) == TRUE){
-    count.num <- rep(0,length(time))
     max.count <- NULL
-    if (count == TRUE){
-      stop("Input \"x\" must include variable \"count\" if option \"count\" is TRUE.")
+    if (show.count == TRUE){
+      stop("Input \"data\" must include variable \"Count\" if option \"show.count\" is TRUE.")
     }
-  }else{
+  }
+  else{
     max.count <- max(count.num)
   }
   
@@ -338,7 +381,9 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
   }
   
   # horizontal 0 line
-  p <- p + geom_hline(yintercept = 0, colour = lcolor,linewidth = lwidth)
+  p <- p + geom_hline(yintercept = 0, 
+                      colour = lcolor, 
+                      size = lwidth)
   
   # vertical 0 line
   p <- p + geom_vline(xintercept = 0.5, colour=lcolor,size = lwidth*0.7)    
@@ -409,7 +454,7 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
                  plot.title = element_text(size = cex.main, hjust = 0.5, face="bold", margin = margin(10, 0, 10, 0)))
   
   # histogram
-  if (count == TRUE) {
+  if (show.count == TRUE) {
     data[,"xmin"] <- data[,"time"] - 0.2
     data[,"xmax"] <- data[,"time"] + 0.2
     data[,"ymin"] <- rep(rect.min, dim(data)[1])
@@ -476,7 +521,17 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
   p <- p + annotate("text", x = stats.pos[1], y = stats.pos[2], 
                     label = p.label, size = cex.text * 0.8, hjust = 0) 
   
-  
+  # xlim & ylim
+  if (is.null(ylim) == TRUE) {
+    p <- p + ylim(c(NA,max(data[,"CI.upper"], na.rm = 1)*1.3))
+  }
+  else{
+    p <- p + ylim(ylim = ylim)
+  }
+
+  if(!is.null(xlim) == TRUE){
+    p <- p + xlim(xlim)
+  }
   # title
   if (is.null(main) == TRUE) {
     p <- p + ggtitle(maintext)
@@ -491,12 +546,9 @@ coefplot <- function(x, # time ATT CI.lower CI.upper p.value count
     p <- p + scale_x_continuous(breaks=c(data[,'time']))
   }
   
-  # xlim & ylim
-  if (is.null(ylim) == TRUE) {
-    p <- p + coord_cartesian(xlim = xlim, ylim = c(NA,max(data[,"CI.upper"], na.rm = 1)*1.3))
-  }else{
-    p <- p + coord_cartesian(xlim = xlim, ylim = ylim)
-  }
+
+
+  
   
   return(p)
 }
