@@ -1,4 +1,4 @@
-## event study fplot
+## new coefplot
 # x: time ATT CI.lower CI.upper p.value count CI.lower.90 CI.upper.90
 esplot <- function(data,# time ATT CI.lower CI.upper p.value count
                      Period, 
