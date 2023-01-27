@@ -16,7 +16,7 @@ importFrom("ggplot2", "ggplot_build", "geom_boxplot", "geom_density", "geom_tile
            "guides","xlab","ylab","element_rect","geom_errorbar")
 
 
-export(coefplot)
+export(esplot)
 export(get.cohort)
 export(data_ub_adj)
 
