@@ -1,58 +1,38 @@
 ## new coefplot
-# x: time ATT CI.lower CI.upper p.value count CI.lower.90 CI.upper.90
-esplot <- function(data,# time ATT CI.lower CI.upper p.value count
-                     Period, 
-                     Estimate,
-                     SE,
-                     CI.lower = NULL,
-                     CI.upper = NULL,
-                     p.value = NULL,
-                     Count = NULL,
-                     fill.gap = TRUE,
-                     placeboTest = FALSE,
-                     placebo.period = NULL,
-                     carryoverTest = FALSE,
-                     carryover.period = NULL,
-                     show.count = NULL,
-                     stats = NULL, # "none", "F.p", "F.equiv.p", "placebo.p", "carryover.p", "equiv.p"
-                     stats.labs = NULL,
-                     main = NULL,
-                     xlim = NULL,
-                     ylim = NULL,
-                     xlab = NULL, 
-                     ylab = NULL,
-                     gridOff = FALSE,
-                     stats.pos = NULL,
-                     theme.bw = TRUE,
-                     cex.main = NULL,
-                     cex.axis = NULL,
-                     cex.lab = NULL, 
-                     cex.text = NULL,
-                     axis.adjust = FALSE,
-                     ...){
+# x: time ATT CI.lower CI.upper count CI.lower.90 CI.upper.90
+esplot <- function(data,# time ATT CI.lower CI.upper count
+                   Period, 
+                   Estimate,
+                   SE,
+                   CI.lower = NULL,
+                   CI.upper = NULL,
+                   Count = NULL,
+                   fill.gap = TRUE, # use values 0 to fill the gaps of the dynamic treatment effects
+                   start0 = FALSE, # default: 1 as the first post-treatment period
+                   show.count = NULL, # whether show the bar of number of observations
+                   stats = NULL, # a list of p-values
+                   stats.labs = NULL, # a list of p-value labels
+                   highlight.periods = NULL, # a list of periods
+                   highlight.colors = NULL, # a list of colors
+                   main = NULL,
+                   xlim = NULL,
+                   ylim = NULL,
+                   xlab = NULL, 
+                   ylab = NULL,
+                   gridOff = FALSE,
+                   stats.pos = NULL,
+                   theme.bw = TRUE,
+                   cex.main = NULL,
+                   cex.axis = NULL,
+                   cex.lab = NULL, 
+                   cex.text = NULL,
+                   axis.adjust = FALSE){
   
   scaleFUN <- function(x) sprintf("%.f", x)
-  
-  # placeboTest
-  if (is.logical(placeboTest) == FALSE & is.numeric(placeboTest)==FALSE) {
-    stop("\"placeboTest\" is not a logical flag.")
-  }
-  if (is.null(placebo.period)==FALSE) {
-    if (is.numeric(placebo.period)==FALSE) {
-      stop("\"placebo.period\" is not numeric.")
-    }
-  }
-  
-  # carryoverTest
-  if (is.logical(carryoverTest) == FALSE & is.numeric(carryoverTest)==FALSE) {
-    stop("\"carryoverTest\" is not a logical flag.")
-  }
-  if (is.null(carryover.period)==FALSE) {
-    if (is.numeric(carryover.period)==FALSE) {
-      stop("\"carryover.period\" is not numeric.")
-    }
-  }
-  
+  xmax<-xmin<-ymax<-ymin<- NULL
+
+  data <- as.data.frame(data)
+
   # count
   if (is.logical(show.count) == FALSE & is.numeric(show.count)==FALSE & is.null(show.count)==FALSE) {
     stop("\"show.count\" is not a logical flag.")
@@ -60,11 +40,27 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
   if (is.null(show.count)==TRUE){
     show.count <- FALSE
   }
+  if(show.count == TRUE & is.null(Count)){
+    stop("\"Count\" is not specified.")
+  }
+  if(show.count == TRUE){
+    if(!(Count %in% colnames(data))){
+      stop("\"Count\" is not in the data.")      
+    }
+  }
   
   # gridOff
-  if (is.logical(gridOff) == FALSE & is.numeric(gridOff)==FALSE) {
+  if (is.logical(gridOff) == FALSE & !gridOff%in%c(0, 1)) {
     stop("\"gridOff\" is not a logical flag.")
-  }
+  } 
+
+  if (is.logical(fill.gap) == FALSE & !fill.gap%in%c(0, 1)) {
+    stop("\"fill.gap\" is not a logical flag.")
+  } 
+
+  if (is.logical(axis.adjust) == FALSE & !axis.adjust%in%c(0, 1)) {
+    stop("\"axis.adjust\" is not a logical flag.")
+  } 
   
   # title
   if (is.null(main)==FALSE) {
@@ -123,53 +119,18 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
     cex.text <- 5
   }
   
-  # names for all statistics
-  if (is.null(stats)==TRUE){
-    stats <- "none"
-  }
-  
-  for (i in 1:length(stats)) {
-    if (!stats[i] %in% c("none", "F.p", "F.equiv.p", "placebo.p", "carryover.p", "equiv.p")) {
-      stop("\"stats\" option misspecified. Must be one of followings:\"none\", \"F.p\", \"F.equiv.p\", \"placebo.p\", \"carryover.p\", \"equiv.p\".")
+  # statistics values
+  if (is.null(stats)==FALSE){
+    stats <- c(stats)
+    if(!is.numeric(stats)){
+      stop("The \"stats\" option must be numeric.")
     }
-  }
-  
-  if (!("none" %in% stats)) {
-    if (is.null(stats.labs)==FALSE) {
-      if (length(stats.labs)!=length(stats)) {
-        stop("\"stats.lab\" should have the same length as \"stats\".")
-      }               
-    } 
-    else {
-      stats.labs <- rep(NA, length(stats)) 
-      for (i in 1:length(stats)) {
-        if (stats[i] == "F.p") {
-          stats.labs[i] <- "F test p-value"
-        }
-        if (stats[i] == "F.equiv.p") {
-          stats.labs[i] <- "F equivalence test p-value"
-        }
-        if (stats[i] == "F.stat") {
-          stats.labs[i] <- "F statistics"
-        }
-        if (stats[i] == "placebo.p") {
-          stats.labs[i] <- "Placebo test p-value"
-        }
-        if (stats[i] == "carryover.p") {
-          stats.labs[i] <- "Carryover effect test p-value"
-        }
-        if (stats[i] == "equiv.p") {
-          if(placeboTest){
-            stats.labs[i] <- "Placebo equivalence test p-value"
-          }
-          else if(carryoverTest){
-            stats.labs[i] <- "Carryover effect equivalence test p-value"
-          }
-          else{
-            stats.labs[i] <- "Equivalence test p-value"
-          }
-        }
-      }
+    stats <- ifelse(stats %% 1 != 0, round(stats,3), stats)
+    stats <- as.character(stats)
+    n.stats <- length(stats)
+
+    if(length(stats.labs)!=n.stats){
+      stop("The \"stats.labs\" option should have the same length as the \"stats\" option.")
     }
   }
   
@@ -200,13 +161,7 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
     x.v <- 0
     x.h <- 0
   }
-  
-  if(carryoverTest== TRUE){
-    switch.on <- FALSE
-  }
-  else{
-    switch.on <- TRUE
-  }
+
   
   # xlim&ylim
   if (is.null(xlim)==FALSE) {
@@ -230,20 +185,16 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
   
   # axes labels
   if (is.null(xlab) == TRUE) {
-    if (switch.on == TRUE) {
-      xlab <- paste("Time Relative to Treatment")
-    } else {
-      xlab <- paste("Time Relative to Exiting the Treatment")
-    }            
-  } else if (xlab == "") {
-    if (switch.on == TRUE) {
-      xlab <- NULL
-    }
+    xlab <- paste("Time Relative to Treatment")   
+  } 
+  else if (xlab == "") {
+    xlab <- NULL
   }
     
   if (is.null(ylab) == TRUE) {
     ylab <- paste("Effect on Y")
-  } else if (ylab == "") {
+  } 
+  else if (ylab == "") {
     ylab <- NULL
   }
   
@@ -269,14 +220,12 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
   if(!is.null(CI.upper)){
     CI.upper <- data[,CI.upper]
   }
-
   if(!is.null(Count)){
     count.num <- data[,Count]
   }
   else{
     count.num <- rep(0,length(time))
   }
-  
   if(!is.null(se)){
     if(is.null(CI.lower)){
       CI.lower <- ATT - 1.96*se
@@ -286,9 +235,10 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
     }
   }
 
+
   # add default zero
   time_lag <- max(time)-min(time)+1
-  if(fill.gap){
+  if(fill.gap == TRUE){
     if(time_lag>dim(data)[1]){
       time.add <- setdiff(c(min(time):max(time)),time)
       time <- c(time,time.add)
@@ -300,21 +250,27 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
     }    
   }
 
+  if(!is.null(highlight.periods)){
+    for(sub.period in highlight.periods){
+      if(!sub.period %in% time){
+        stop(paste0("Period ",sub.period," is out of the range of periods in the graph."))
+      }
+    }
+
+    n.highlight <- length(highlight.periods)
+    if(length(highlight.colors)!=n.highlight){
+      stop("The \"highlight.colors\" option should have the same length as the \"highlight.periods\" option.")
+    }
+  }
+
   # Length of variables
   if (!(length(ATT)==length(time) & length(CI.lower)==length(time) & length(CI.upper)==length(time))){
     stop("The length of time, ATT, and uncertainty estimations must be the same.")
   }
-  else{
-    if (show.count == TRUE & !(length(count.num)==length(time))){
+  
+  if (show.count == TRUE & !(length(count.num)==length(time))){
     stop("The length of time and observation counts must be the same.")
-    }
   }
-  
-  # p.value
-  if (length(p.value) < length(stats.labs)){
-    stop(paste0("Missing statistics \"",stats.labs[length(p.value)+1],"\" in \"p.value\"."))
-  }
-  
   
   # count
   if (is.null(count.num) == TRUE){
@@ -327,36 +283,19 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
     max.count <- max(count.num)
   }
   
-  # time
-  #T0.fill <- NULL
-  #if (min(time) >= 0){
-  #  stop("\"time\" must be relative to treatment.")
-  #}
-  #if (0%in%time == FALSE){
-  #  message("No coefficient for period 0.")
-  #  T0.fill <- max(which(time<0))
-  #  time <- append(time,0,T0.fill)
-  #  ATT <- append(ATT,0,T0.fill)
-  #  CI.lower <- append(CI.lower,0,T0.fill)
-  #  CI.upper <- append(CI.upper,0,T0.fill)
-  #  count.num <- append(count.num,0,T0.fill)
-  #}
-  
-  p.value <- c(p.value,rep(0,length(time)-length(p.value)))
   
   data <- cbind.data.frame(time = time, ATT = ATT, CI.lower = CI.lower,
-                           CI.upper=CI.upper,count=count.num,p.value = p.value)
+                           CI.upper=CI.upper,count=count.num)
   
   p <- ggplot(data)
   
   max.count.pos <- time[which(count.num == max.count)]
   
-  if(carryoverTest== TRUE){
+
+  if(start0 == TRUE){
     best.pos <- 0
   }
-  else{
-    best.pos <- 1
-  }
+  else{best.pos <- 1}
   
   if (length(max.count.pos)>1) {
     if (best.pos %in% max.count.pos) {
@@ -390,69 +329,46 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
   # horizontal 0 line
   p <- p + geom_hline(yintercept = 0, 
                       colour = lcolor, 
-                      size = lwidth)
+                      linewidth = lwidth)
   
   # vertical 0 line
-  p <- p + geom_vline(xintercept = 0.5, colour=lcolor,size = lwidth*0.7)    
-  p <- p + geom_pointrange(data = data, aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, color="black", fill="black",fatten = 2)
-  
+  if(start0 == FALSE){
+    p <- p + geom_vline(xintercept = 0.5, colour=lcolor,linewidth = lwidth*0.7) 
+  }
+  else{
+    p <- p + geom_vline(xintercept = -0.5, colour=lcolor,linewidth = lwidth*0.7) 
+  }
+     
+  p <- p + geom_pointrange(data = data, aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, color="black", fill="black",fatten = 2)  
   T0 <- which(data[,"time"] == 0)
-  #if (is.null(T0.fill) == TRUE){
-  #  T0 <- which(data[,"time"] == 0)
-  #}
-  #else{
-  #  T0 <- which(data[,"time"] == 0)-1
-  #}
-  
-  
-  maintext <- "Estimated ATT"
-  
-  # placeboTest
-  if (placeboTest == TRUE){
-    maintext <- "Placebo Test"
-    if (is.null(placebo.period)){
-      placebo.period <- 3
-    }
-    
-    if (length(placebo.period)>2){
-      stop("You misspecified \"placebo.period\".")
-    }
-    
-    if (length(placebo.period)==1){
-      placebo.period <- (T0-placebo.period+1):T0
-    }else{
-      if (length(placebo.period)==2){
-        placebo.period <- (T0+placebo.period[1]):(T0+placebo.period[2])
-      }
-    }
-    
-    p <- p + geom_pointrange(data = data[placebo.period,],  aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, color="blue", fill="blue",fatten = 2)
-  }
-  
-  # carryoverTest
-  if (carryoverTest == TRUE){
-    maintext <- "Carryover Test"
-    if (is.null(carryover.period)){
-      carryover.period <- 3
-    }
-    
-    if (length(carryover.period)>2){
-      stop("You misspecified \"carryover.period\".")
-    }
-    #if (is.null(T0.fill)!=TRUE){
-    #  T0 <- T0+1
-    #}
-    if (length(carryover.period)==1){
-      carryover.period <- (T0+1):(T0+carryover.period)
-    }else{
-      if (length(carryover.period)==2){
-        carryover.period <- (T0+carryover.period[1]):(T0+carryover.period[2])
-      }
-    }
 
-    p <- p + geom_pointrange(data = data[carryover.period,],  aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, color="red", fill="red",fatten = 2)
+  
+  
+  maintext <- "Estimated Dynamic Treatment Effects"
+
+  if(!is.null(highlight.periods)){
+    kk <- 1
+    data.highlight.plot <- list()
+    for(sub.period in highlight.periods){
+      sub.time <- sub.period
+      sub.index <- which(time==sub.time)
+      sub.ATT <- ATT[sub.index]
+      sub.CI.lower <- CI.lower[sub.index]
+      sub.CI.upper <- CI.upper[sub.index]
+      sub.color <- highlight.colors[kk]
+      data.highlight.plot[[kk]] <- cbind.data.frame(time=sub.time,
+                                                    ATT=sub.ATT,
+                                                    CI.lower=sub.CI.lower,
+                                                    CI.upper=sub.CI.upper)
+      
+      p <- p + geom_pointrange(data=data.highlight.plot[[kk]],
+                               aes(x = time, y = ATT, ymin=CI.lower, ymax=CI.upper), lwd=0.6, 
+                               color=sub.color, fill=sub.color,fatten = 2)  
+      kk <- kk + 1
+    }
   }
   
+
   # axes
   p <- p + theme(axis.title=element_text(size=cex.lab),
                  axis.title.x = element_text(margin = margin(t = 8, r = 0, b = 0, l = 0)),
@@ -478,57 +394,23 @@ esplot <- function(data,# time ATT CI.lower CI.upper p.value count
   
   # stats.pos
   if (!is.null(stats)){
-    if (!"None" %in% stats){
-      if (is.null(stats.pos)) {
-        stats.pos[1] <- min(data[,"time"], na.rm = 1)
-        stats.pos[2] <- ifelse(is.null(ylim), max(data[,"CI.upper"], na.rm = 1)*1.16, ylim[1])
-      }
+    if (is.null(stats.pos)) {
+      stats.pos[1] <- min(data[,"time"], na.rm = 1)
+      stats.pos[2] <- ifelse(is.null(ylim), max(data[,"CI.upper"], na.rm = 1)*1.16, ylim[1])
     }
   }
   
   # p.label
   p.label <- NULL
-  for (i in 1:length(stats)) {
-    if ("F.p" %in% stats[i]) {
-      f.p <- data$p.value[1]
-      p.label1 <- NULL
-      p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f",f.p))
-      p.label <- paste0(p.label, p.label1, "\n")
+  if(!is.null(stats)){
+    for (ii in 1:length(stats)) {
+      p.label <- paste0(p.label,stats.labs[ii],":",stats[ii],"\n")
     }
-    if ("F.equiv.p" %in% stats[i]) {
-      f.equiv.p <- data$p.value[2]
-      p.label1 <- NULL
-      p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f",f.equiv.p))
-      p.label <- paste0(p.label, p.label1, "\n")
-    }
-    if ("placebo.p" %in% stats[i]) {
-      placebo.p <- data$p.value[1]
-      p.label1 <- NULL
-      p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f",placebo.p))
-      p.label <- paste0(p.label, p.label1, "\n")
-    }
-    if ("carryover.p" %in% stats[i]) {
-      carryover.p <- data$p.value[1]
-      p.label1 <- NULL
-      p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f",carryover.p))
-      p.label <- paste0(p.label, p.label1, "\n")
-    }
-    if ("equiv.p" %in% stats[i]) {
-      if (placeboTest==TRUE){
-      placebo.equiv.p <- data$p.value[2]
-      p.label1 <- NULL
-      p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f", placebo.equiv.p))
-      p.label <- paste0(p.label, p.label1, "\n")}
-    
-      if (carryoverTest==TRUE){
-        carryover.equiv.p <- data$p.value[2]
-        p.label1 <- NULL
-        p.label1 <- paste0(stats.labs[i],": ", sprintf("%.3f", carryover.equiv.p))
-        p.label <- paste0(p.label, p.label1, "\n")}
-    }
-  } 
-  p <- p + annotate("text", x = stats.pos[1], y = stats.pos[2], 
-                    label = p.label, size = cex.text * 0.8, hjust = 0) 
+    p <- p + annotate("text", x = stats.pos[1], y = stats.pos[2], 
+                      label = p.label, size = cex.text * 0.8, hjust = 0)      
+  }
+
+
   
   # xlim & ylim
   if (is.null(ylim) == TRUE) {

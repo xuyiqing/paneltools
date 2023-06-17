@@ -1,6 +1,4 @@
-useDynLib(paneltools, .registration=TRUE)
-##exportPattern("^[[:alpha:]]+")
-importFrom(Rcpp, evalCpp)
+importFrom("dplyr","%>%", "group_by", "mutate")
 importFrom("stats", "na.omit", "quantile", "sd", "var", "cov", "pchisq", "lm", 
 "as.formula", "median", "pnorm", "predict", "qnorm", "reshape",
 "dnorm", "pf", "rbinom", "loess")
@@ -18,5 +16,4 @@ importFrom("ggplot2", "ggplot_build", "geom_boxplot", "geom_density", "geom_tile
 
 export(esplot)
 export(get.cohort)
-export(data_ub_adj)
 
