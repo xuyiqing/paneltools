@@ -7,7 +7,7 @@ get.cohort <- function(data,
                        drop.always.treat = FALSE){
     data.raw <- data
     if(length(D)>1){
-        stop("Treatment indicator \"D\" should have length 1.\n")
+        stop("Treatment indicator \"D\" should have length 1.")
     }
     if (is.data.frame(data) == FALSE || length(class(data)) > 1) {
         data <- as.data.frame(data)
@@ -24,6 +24,7 @@ get.cohort <- function(data,
     if (is.logical(drop.always.treat) == FALSE & !drop.always.treat%in%c(0, 1)) {
         stop("\"drop.always.treat\" is not a logical flag.")
     } 
+
 
     if(is.null(varname)){
         varname1 <- 'FirstTreat'
