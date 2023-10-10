@@ -211,7 +211,7 @@ get.cohort <- function(data,
     
     D.cum1 <- apply(D,2,cumsum)
     D.cum2 <- apply(D.cum1,2,cumsum)
-    T0.tr <- apply(D.cum2[,tr.pos],2,function(vec){which(vec==1)})
+    T0.tr <- apply(matrix(D.cum2[,tr.pos],nrow=dim(D.cum2)[1]),2,function(vec){which(vec==1)})
     T0.tr.origin <- as.numeric(sapply(T0.tr,function(x){names(time.match)[which(time.match==x)]}))
     T0.co.origin <- rep(NA,length(co.name))
 
