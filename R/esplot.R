@@ -290,7 +290,7 @@ esplot <- function(data,# time ATT CI.lower CI.upper count
 
   # set ylim if NULL
   if (is.null(ylim) == TRUE) {
-    ylim <- c(min(data[,"CI.upper"], na.rm = TRUE) * 1.3, max(data[,"CI.upper"], na.rm = TRUE) * 1.3)
+    ylim <- c(min(data[,"CI.lower"], na.rm = TRUE) * 1.3, max(data[,"CI.upper"], na.rm = TRUE) * 1.3)
   } 
   ymin <- ylim[1]
   ymax <- ylim[2]

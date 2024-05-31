@@ -35,14 +35,24 @@ In recent years, researchers have proposed various robust estimators for heterog
 
 ```{r message = FALSE, warning = FALSE, echo = FALSE}
 #path <- "~/Dropbox/ProjectZ/TSCS_practice/data/cleaned/"
-path <- "D:/Dropbox/TSCS_practice/data/cleaned/"
+# path <- "D:/Dropbox/TSCS_practice/data/cleaned/"
 ```
 
 ```{r message = FALSE, warning = FALSE}
 # install packages from CRAN
 packages <- c("dplyr", "readstata13", "fixest", "did", "fect", "didimputation",
               "panelView", "PanelMatch", "ggplot2", "bacondecomp", "HonestDiD")
-install.packages(setdiff(packages, rownames(installed.packages())))  
+install.packages(setdiff(packages, rownames(installed.packages())),
+                 repos = "https://cloud.r-project.org")  
+
+# install "HonestDID"
+if ("HonestDID" %in% rownames(installed.packages()) == FALSE) {
+  devtools:: install_github("asheshrambachan/HonestDiD")
+}  
+
+# update "fect"
+devtools:: install_github("xuyiqing/fect", upgrade = "always")
+  
 
 # install "paneltools"
 if ("paneltools" %in% rownames(installed.packages()) == FALSE) {
@@ -66,13 +76,20 @@ library(doParallel)
 library(HonestDiD)
 ```
 
+Lood data:
+```{r data}
+data(paneltools)
+ls()
+summary(hh2019)
+summary(gs2020)
+```
 
 #  Example 1: w/o Treatment Reserveal
 
 We begin with an empirical example from Hainmueller and Hopkins (2019), in which the authors investigate the effects of indirect democracy (versus direct democracy) on naturalization rates in Switzerland using municipality-year level panel data from 1991 to 2009. The study shows that a switch from direct to indirect democracy increased naturalization rates by an average of 1.22 percentage points (Model 1 of Table 1 in the paper).
 
 ```{r message = FALSE, warning = FALSE}
-data <- read.dta13(paste0(path, "jens_ajps2019_clean.dta"))
+data <- hh2019
 head(data)
 ```
 
@@ -179,7 +196,7 @@ p.twfe
 
 In addition, by setting the `start0` option to `TRUE`, we have the flexibility to designate period $0$ as the first post-treatment period, thereby rendering period $-1$ as the last pre-treatment period. Consequently, there is no requirement to shift the period index by one in this scenario, as it aligns with the conventional TWFE framework.
 
-```{r hh_twfeplot3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_twfeplot3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 twfe.output <- as.data.frame(twfe.est$coeftable)
 twfe.output$Time <- c(c(-18:-2),c(0:17)) 
 p.twfe <- esplot(twfe.output,Period = 'Time',Estimate = 'Estimate',
@@ -220,7 +237,7 @@ st.est <- feols(nat_rate_ord ~ i(Time_to_Treatment, treat, ref = -1)| st_unit + 
 print(st.est$coeftable)
 ```
 
-```{r hh_stplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_stplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 st.output <- as.data.frame(st.est$coeftable)
 st.output$Time <- c(c(-18:-2),c(0:17))+1 
 p.st <- esplot(st.output,Period = 'Time',Estimate = 'Estimate',
@@ -251,7 +268,7 @@ print(sa.output)
 
 We can visualize the estimated dynamic treatment effects using the same method as we do for the TWFE estimator. The results indicate a significant treatment effect, but no pre-treatment trend difference is observed. The minimal difference between the results obtained from the TWFE and iw estimators suggests that the weak pre-treatment trend difference may be a result of heterogeneous treatment effects rather than a violation of the parallel trend assumption.
 
-```{r hh_saplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_saplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 sa.output <- as.data.frame(sa.output)
 sa.output$Time <- c(c(-18:-2),c(0:17))+1
 p.sa <- esplot(sa.output,Period = 'Time',Estimate = 'Estimate',
@@ -295,7 +312,7 @@ print(cs.att.1)
 
 The estimated dynamic treatment effects during the post-treatment period are numerically the same as those obtained from the iw estimator. However, the estimates for the pre-treatment period may differ as the csdid estimator does not rely on a single reference period. We present the results in a similar manner and it can be observed that there is a significant treatment effect present, with no clear pre-trend difference.
 
-```{r hh_csplot1a, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_csplot1a, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 cs.output <- cbind.data.frame(Estimate = cs.att.1$att.egt,
                               SE = cs.att.1$se.egt,
                               time = cs.att.1$egt + 1)
@@ -306,7 +323,7 @@ p.cs.1
 
 The package also offers an option, 'base_period = universal', which sets the base period to always be the last pre-treatment period. This produces results that are quite similar to the iw estimator.
 
-```{r hh_csplot1b, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_csplot1b, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 cs.est.1.u <- att_gt(yname = "nat_rate_ord",
                  gname = "FirstTreat",
                  idname = "bfs",
@@ -354,7 +371,7 @@ print(cs.att.2)
 ```
 
 
-```{r hh_csplot2a, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_csplot2a, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 cs.output <- cbind.data.frame(Estimate = cs.att.2$att.egt,
                               SE = cs.att.2$se.egt,
                               time = cs.att.2$egt + 1)
@@ -365,7 +382,7 @@ p.cs.2
 
 And we can set the reference period to be the last pre-treatment period.
 
-```{r hh_csplot2b, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_csplot2b, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 cs.est.2.u <- att_gt(yname = "nat_rate_ord",
                  gname = "FirstTreat",
                  idname = "bfs",
@@ -445,7 +462,7 @@ PE.results <- PanelEstimate(PM.results, data = df.pm)
 PE.results.placebo <- placebo_test(PM.results.placebo, data = df.pm, plot = F)
 ```
 
-```{r hh_pm3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_pm3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 est_lead <- as.vector(PE.results$estimates)
 est_lag <- as.vector(PE.results.placebo$estimates)
 sd_lead <- apply(PE.results$bootstrapped.estimates,2,sd)
@@ -496,7 +513,7 @@ out.impute
 
 We can visualize the dynamic treatment effects in the same way.
 
-```{r hh_fectplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_fectplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 fect.output <- as.data.frame(fect.output)
 fect.output$Time <- c(-17:18)
 p.fect <- esplot(fect.output,Period = 'Time',Estimate = 'ATT',
@@ -507,7 +524,7 @@ p.fect
 
 The **didimputation** package also supports the event study estimate, which produces a numerically equivalent estimate for the dynamic treatment effects post-treatment. However, `didimputation` uses a distinct TWFE-regression solely on untreated observations to obtain the pre-treatment estimates and conduct a test for parallel trends. In this case, we can specify the option `pretrends = c(-13:-1)` to compute the regression coefficients for the pre-treatment periods ranging from -13 to -1.
 
-```{r hh_impute2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_impute2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 model.impute <- did_imputation(data = df.impute,
                                yname = "nat_rate_ord",
                                gname = "FirstTreat",
@@ -535,7 +552,7 @@ print(out.fect.balance$est.balance.avg)
 #Dynamic Treatment Effects
 ```
 
-```{r hh_balance2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r hh_balance2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 fect.balance.output <- as.data.frame(out.fect.balance$est.balance.att)
 fect.balance.output$Time <- c(-2:4)
 p.fect.balance <- esplot(fect.balance.output,Period = 'Time',Estimate = 'ATT',
@@ -546,9 +563,9 @@ p.fect.balance
 
 
 
-## Sensitivity Check
+## Sensitivity Analyses and Robust Confidence Set
 
-The work of @rambachan2023more introduces a robust inference method that tolerates violations of the parallel trend assumption (PTA), provided that deviations in post-treatment periods do not exceed those observed in the pre-treatment phase. This method is useful for sensitivity analysis of estimates from **FEct** and other models. We demonstrate two approaches for this analysis: one using estimated coefficients from all 15 pre-treatment periods and another using coefficients from three specific placebo periods. The commands `createSensitivityResults_relativeMagnitudes` and `constructOriginalCS` from the **Honestdid** package are utilized to construct these robust confidence intervals.
+@rambachan2023more introduce a robust inference method that tolerates violations of the parallel trend assumption (PTA), provided that deviations in post-treatment periods do not exceed those observed in the pre-treatment phase. This method is useful for sensitivity analysis of estimates from **FEct** and other models. We demonstrate two approaches for this analysis: one using estimated coefficients from all 15 pre-treatment periods and another using coefficients from three specific placebo periods. The commands `createSensitivityResults_relativeMagnitudes` and `constructOriginalCS` from the **Honestdid** package are utilized to construct these robust confidence intervals.
 
 For the first approach, we start with extracting event-study coefficients of all pre-treatment periods and their variance-covariance matrix from FEct's output. By setting a threshold $\bar{M}$, we allow deviations in post-treatment periods as long as they are less than $\bar{M}$ times the maximum difference between consecutive pre-treatment period coefficients. We generate confidence intervals for the ATT by varying $M$ from 0.1 to 0.5, thus adjusting the allowed level of post-treatment deviations. The `l_vec` option dictates the relative weights of post-treatment coefficients in estimating ATT, proportional to the observation count in each period. Notably, at $M=0.3$, the confidence interval's lower bound remains slightly above zero, but at $M=0.4$, the confidence interval includes zero. This suggests we can still reject the null hypothesis of no treatment effect when deviations in post-treatment periods do not exceed $0.3$ times the maximum difference between consecutive pre-treatment period coefficients.
 
@@ -639,17 +656,17 @@ vcov.hat.p <- out.fect.placebo$att.vcov[index.use,index.use]
 count <- out.fect.placebo$count[which(rownames(out.fect.placebo$est.att) %in% as.character(c(1:T.post)))]
 
 honest.result.p <- createSensitivityResults_relativeMagnitudes(betahat = beta.hat.p,
-                                                             sigma = vcov.hat.p,
-                                                             numPrePeriods = 3,
-                                                             numPostPeriods = T.post,
-                                                             l_vec = count/sum(count),
-                                                             Mbarvec = seq(0.2,1,by=0.2)) 
+          sigma = vcov.hat.p,
+          numPrePeriods = 3,
+          numPostPeriods = T.post,
+          l_vec = count/sum(count),
+          Mbarvec = seq(0.2,1,by=0.2)) 
 
 originalResults.p <- constructOriginalCS(betahat = beta.hat.p,
-                                       sigma = vcov.hat.p,
-                                       numPrePeriods = 3,
-                                       numPostPeriods = T.post,
-                                       l_vec = count/sum(count))
+           sigma = vcov.hat.p,
+           numPrePeriods = 3,
+           numPostPeriods = T.post,
+           l_vec = count/sum(count))
 
 createSensitivityPlot_relativeMagnitudes(honest.result.p, originalResults.p)
 ```
@@ -684,7 +701,7 @@ for(t.post in c(1:T.post)){
 
 ```
 
-```{r,hh_honest.placebo.honest.gap.p, warning=FALSE,  fig.width = 7, fig.height = 5}
+```{r,hh_honest.placebo.honest.gap.p, warning=FALSE,  fig.width = 7, fig.height = 5, cache = FALSE}
 fect.output.p <- as.data.frame(out.fect.placebo$est.att)
 fect.output.p$Time <- as.numeric(rownames(fect.output.p))
 p.placebo.honest <- esplot(fect.output,Period = 'Time',Estimate = 'ATT',
@@ -705,7 +722,7 @@ p.placebo.honest
 We utilize the data from @Grumbach2020 to demonstrate the analysis procedure when the treatment can switch on and off. The study, which uses district-election year level TSCS data from US House general elections between 1980 and 2012, argues that the presence of Asian (Black/Latino) candidates in general elections leads to an increase in the proportion of campaign contributions by Asian (Black/Latino) donors. Specifically, we focus on the effects of Asian candidates as presented in the top left panel of Figure 5 in the paper.
 
 ```{r message = FALSE, warning = FALSE}
-data <- read.dta13(paste0(path, "grumbach-sahn_apsr2020_full.dta"))
+data <- gs2020
 data$cycle <- as.integer(as.numeric(data$cycle/2))
 head(data)
 ```
@@ -767,7 +784,7 @@ twfe.output <- as.matrix(twfe.est$coeftable[c(1:25),])
 print(twfe.output)
 ```
 
-```{r gb_twfeplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r gb_twfeplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 twfe.output <- as.data.frame(twfe.output)
 twfe.output$Time <- c(c(-16:-2),c(0:9))+1 
 p.twfe <- esplot(twfe.output,Period = 'Time',Estimate = 'Estimate',
@@ -831,7 +848,7 @@ PE.results <- PanelEstimate(PM.results, data = df.pm)
 PE.results.placebo <- placebo_test(PM.results.placebo, data = df.pm, plot = F)
 ```
 
-```{r gb_pm3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r gb_pm3, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 est_lead <- as.vector(PE.results$estimates)
 est_lag <- as.vector(PE.results.placebo$estimates)
 sd_lead <- apply(PE.results$bootstrapped.estimates,2,sd)
@@ -866,7 +883,7 @@ fect.output <- as.matrix(model.fect$est.att)
 print(fect.output)
 ```
 
-```{r gb_fectplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r gb_fectplot2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 fect.output <- as.data.frame(fect.output)
 fect.output$Time <- c(-15:10)
 p.fect <- esplot(fect.output,Period = 'Time',Estimate = 'ATT',
@@ -925,7 +942,7 @@ print(out.fect.balance$est.balance.avg)
 #Dynamic Treatment Effects
 ```
 
-```{r gb_balance2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+```{r gb_balance2, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=FALSE}
 fect.balance.output <- as.data.frame(out.fect.balance$est.balance.att)
 fect.balance.output$Time <- c(-1:1)
 p.fect.balance <- esplot(fect.balance.output,Period = 'Time',Estimate = 'ATT',
