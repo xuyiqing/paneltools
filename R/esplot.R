@@ -235,6 +235,7 @@ esplot <- function(data,# time ATT CI.lower CI.upper count
     }
   }
 
+  
 
   # add default zero
   time_lag <- max(time)-min(time)+1
@@ -286,7 +287,26 @@ esplot <- function(data,# time ATT CI.lower CI.upper count
   
   data <- cbind.data.frame(time = time, ATT = ATT, CI.lower = CI.lower,
                            CI.upper=CI.upper,count=count.num)
-  
+
+  # set ylim if NULL
+  if (is.null(ylim) == TRUE) {
+    ylim <- c(min(data[,"CI.upper"], na.rm = TRUE) * 1.3, max(data[,"CI.upper"], na.rm = TRUE) * 1.3)
+  } 
+  ymin <- ylim[1]
+  ymax <- ylim[2]
+                         
+#             $$\            $$\     
+#           $$ |           $$ |    
+#  $$$$$$\  $$ | $$$$$$\ $$$$$$\   
+# $$  __$$\ $$ |$$  __$$\\_$$  _|  
+# $$ /  $$ |$$ |$$ /  $$ | $$ |    
+# $$ |  $$ |$$ |$$ |  $$ | $$ |$$\ 
+# $$$$$$$  |$$ |\$$$$$$  | \$$$$  |
+# $$  ____/ \__| \______/   \____/ 
+# $$ |                             
+# $$ |                             
+# \__|                               
+
   p <- ggplot(data)
   
   max.count.pos <- time[which(count.num == max.count)]
@@ -310,8 +330,8 @@ esplot <- function(data,# time ATT CI.lower CI.upper count
   }
   
   # height of the histogram
-  rect.length <- (max(data$CI.upper, na.rm = TRUE) - min(data$CI.upper, na.rm = TRUE))/2
-  rect.min <- min(data$CI.lower, na.rm = TRUE) - rect.length 
+  rect.length <- (ymax - ymin)/6
+  rect.min <- ymin 
   
   # xlab and ylab
   p <- p + xlab(xlab) +  ylab(ylab) 
@@ -412,13 +432,9 @@ esplot <- function(data,# time ATT CI.lower CI.upper count
 
 
   
-  # xlim & ylim
-  if (is.null(ylim) == TRUE) {
-    p <- p + ylim(c(NA,max(data[,"CI.upper"], na.rm = 1)*1.3))
-  }
-  else{
-    p <- p + ylim(ylim = ylim)
-  }
+  # xlim & ylim  
+  p <- p + ylim(ylim = ylim)
+  
 
   # title
   if (is.null(main) == TRUE) {
