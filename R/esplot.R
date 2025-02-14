@@ -1,3 +1,41 @@
+#' @title esplot 
+#'  
+#' @description \code{esplot} Visualize the dynamic treatment effects and create an event study plot.
+#'  
+#' @param data The input data for the event study plot.
+#' @param Period The variable name of the relative period.
+#' @param Estimate The variable name of the relative period.
+#' @param SE The variable name of the standard errors. Omitted if \code{CI.lower} and \code{CI.upper} are specified
+#' @param CI.lower Optional. The variable name of the lower confidence interval.
+#' @param CI.upper Optional. The variable name of the upper confidence interval.
+#' @param Count Optional. The variable name indicating the number of treated observations for each time period.
+#' @param fill.gap Logical. Whether to use 0 values to fill gaps in dynamic treatment effects. Default is \code{TRUE}.
+#' @param start0 Logical. Whether period 0 should be considered as the first post-treatment period. Default is \code{FALSE}.
+#' @param show.count Logical. Whether to display the bar plot of the number of observations at the bottom of the plot.
+#' @param stats Optional. A list of statistics to be printed on the plot.
+#' @param stats.labs Optional. The names corresponding to \code{stats}.
+#' @param highlight.periods Optional. A list of periods to highlight.
+#' @param highlight.colors Optional. A list of colors for highlighting periods.
+#' @param main Optional. The title of the plot.
+#' @param xlim Optional. The limits of the x-axis.
+#' @param ylim Optional. The limits of the y-axis.
+#' @param xlab Optional. The label for the x-axis.
+#' @param ylab Optional. The label for the y-axis.
+#' @param gridOff Logical. Whether to turn off grid lines. Default is \code{FALSE}.
+#' @param stats.pos Optional. The position of the printed statistics.
+#' @param theme.bw Logical. Whether to use a black-and-white theme. Default is \code{TRUE}.
+#' @param cex.main Optional. The font size for the plot title.
+#' @param cex.axis Optional. The font size for the axis labels.
+#' @param cex.lab Optional. The font size for the axis tick labels.
+#' @param cex.text Optional. The font size for other text elements in the plot.
+#' @param axis.adjust Logical. Whether to adjust the axis position. Default is \code{FALSE}.
+#'  
+#' @return \code{esplot} return a ggplot object of the event study plot. 
+#' @author Licheng Liu, Yiqing Xu, Ziyi Liu, Zhongyu Yin
+#' 
+#'  
+#' @export
+
 ## new coefplot
 # x: time ATT CI.lower CI.upper count CI.lower.90 CI.upper.90
 esplot <- function(data,# time ATT CI.lower CI.upper count
