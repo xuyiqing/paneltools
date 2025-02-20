@@ -11,7 +11,7 @@ Maintainer: Ziyi Liu <ziyiliu2020@gmail.com>
 Description: Provides implementations of common-used data preprocessing and results visualization for panel data analyses, including calculation of relative periods to the treatment and the visualization of dynamic treatment effects.  
 NeedsCompilation: yes
 License: MIT + file LICENSE
-Imports: ggplot2, dplyr, tidyr
+Imports: ggplot2, dplyr, tidyr, rlang, parallel, foreach, doParallel
 SystemRequirements: A C++11 compiler.
 Depends: R (>= 3.5.0)
 LazyData: true
