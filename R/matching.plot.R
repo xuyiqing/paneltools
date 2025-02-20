@@ -98,9 +98,9 @@ matching.plot <- function(Dwide, c, a, b, type = "episode", this_episode, this_c
   }
   
   # Plot using ggplot2
-  p <- ggplot(grid, aes(x, y))
+  p <- ggplot(grid, aes(x = !!sym("x"), y = !!sym("y")))
   p <- p +
-    geom_tile(aes(fill = group), color = NA) +  # Use pre-specified colors
+    geom_tile(aes(fill = !!sym("group")), color = NA) +  # Use pre-specified colors
     scale_fill_manual(values = group_colors, name = "Group") +
     scale_y_continuous(
       trans = "reverse"

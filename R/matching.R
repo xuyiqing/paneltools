@@ -156,11 +156,14 @@ matching <- function(data, # data in long form
     # update the treated id from sorted proxy to actual id
     # treat_id_true <- cbind(id_list[treat_id[, 1]],time_list[treat_id[, 2]])
     matching_set <- as.data.frame(cbind(treat_id, Control))
-    colnames(matching_set) = c("ind", "time", as.character(matrix(id_list, nrow = 1, ncol = N)))
+    colnames(matching_set) = c("ind", "time", as.character(matrix(c(1:N), nrow = 1, ncol = N)))
     
     # change the matrix of matching set to a list
     if (type == "episode"){
       episode <- list()
+      episode[["long panel"]] <- list(
+        long_panel = balanced_data
+      )
       if (is.null(X)){
         episode[["wide panel"]] <- list(
           Ywide = Ywide,
@@ -214,6 +217,9 @@ matching <- function(data, # data in long form
       group <- split(matching_set[, 1], matching_set[, 2]) 
       B <- unique(matching_set$time)[order(unique(matching_set$time))]
       cohort <- list()
+      cohort[["long panel"]] <- list(
+        long_panel = balanced_data
+      )
       if (is.null(X)){
         cohort[["wide panel"]] <- list(
           Ywide = Ywide,
@@ -252,7 +258,7 @@ matching <- function(data, # data in long form
         treat <- as.character(group[[as.character(B[t])]])
         # time <- as.character(time_list[B[t]])
         time <- as.character(B[t])
-        INDcontrol <- as.vector(matching_set[t, -1:-2])
+        INDcontrol <- as.vector(matching_set[which(matching_set[,1] == as.numeric(treat[1]) & matching_set[,2] == as.numeric(time)), -1:-2])
         # control <- as.character(matrix(id_list, nrow = 1, ncol = length(INDcontrol)))[(INDcontrol==1)]
         control <- as.character(matrix(1:length(INDcontrol),nrow=1,ncol=length(INDcontrol)))[(INDcontrol==1)]
         cohort[[paste0("cohort", t)]] <- list(

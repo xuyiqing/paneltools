@@ -10,11 +10,11 @@
 #'  
 #' @export  
 matching.CIplot <- function(df){
-  p <- ggplot(df, aes(x = Periods, y = Coefs))
+  p <- ggplot(df, aes(x = !!sym("Periods"), y = !!sym("Coefs")))
   p <- p + 
     geom_line(color = "lightcoral") +    
     geom_point(color = "red") +   
-    geom_errorbar(aes(ymin = CI.lower, ymax = CI.upper), width = 0.2, color = "black") +   
+    geom_errorbar(aes(ymin = !!sym("CI.lower"), ymax = !!sym("CI.upper")), width = 0.2, color = "black") +   
     labs(x = "Time", y = "Coefficients", title = "Event Study Plot") +  
     geom_hline(yintercept = 0, color = "gray", linewidth = 0.2) +    
     theme_minimal() +

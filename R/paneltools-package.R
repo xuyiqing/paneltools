@@ -16,7 +16,11 @@
 #' match and its estimates as well as inference
 #' 
 #' @keywords package
-#' 
+#'
+#' @importFrom foreach "%dopar%" foreach
+#' @importFrom parallel detectCores makeCluster stopCluster
+#' @importFrom doParallel registerDoParallel
+#' @importFrom rlang sym 
 #' @importFrom tidyr complete
 #' @importFrom dplyr %>% group_by mutate arrange syms
 #' @importFrom stats na.omit quantile sd var cov pchisq lm as.formula median pnorm predict qnorm reshape dnorm pf rbinom loess

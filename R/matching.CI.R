@@ -8,7 +8,9 @@
 #' @param estimand "ATT" or "Dynamic"
 #' @param method "Simple DID" now, can be added in later version
 #' @param vce "jackknife" or "bootstrap"
-#' @param nsim numbers of bootstrap
+#' @param nsim numbers of bootstrap, also used for limit the number of jackknife
+#' @param parallel whether do parallel computing
+#' @param cores cores used in the parallel computing
 #'  
 #' @return \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
 #' @author Hongyi Jiang <hyjiang2017@nsd.pku.edu.cn>
@@ -19,7 +21,10 @@ matching.CI <- function(sets,
                      estimand = "Dynamic", 
                      method = "Simple DID", 
                      vce = "jackknife", 
-                     nsim = 200){
+                     nsim = 200,
+                     parallel = TRUE, ## parallel computing
+                     cores = 4
+                     ){
   # get the confidence interval of treatment effect
   
   # sets: a list which contains the wide raw balanced panel, the matrix of match,
@@ -78,59 +83,121 @@ matching.CI <- function(sets,
   }
   
   if (vce == "jackknife"){
+    if (nsim > N) {
+      njacks <- N
+    } else {
+      njacks <- nsim
+    }
+    drop.id <- sample(1:N, njacks, replace = FALSE)
     if (estimand == "ATT"){ # We use jackknife to get the confidence interval of ATT
-      jackout <- matrix(NA, nrow=1, ncol=N)
-      for (i in 1:N) {  
-        # whether we drop a treated unit  
-        rows_to_delete <- matching_set[, 1] == i  
-        # delete the episode w.r.t. this unit if exist  
-        matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE] 
-        # change the control list w.r.t. unit i to 0 for all episodes
-        matching_set_tmp[, i+2] <- 0
-        # estimation for the i-th jackknife
-        jackout[, i] <- getCoefs(Y = Ywide, 
-                        D = Dwide, 
-                        X = Xwide, 
-                        c = c, 
-                        a = a, 
-                        b = b, 
-                        matching_set = matching_set_tmp, 
-                        estimand = "ATT",
-                        method = "Simple DID")
-        if (i%%50 == 0) cat(i) else cat(".")
+      cat("\nJackknife for ATT... \n")
+      jackout <- matrix(NA, nrow=1, ncol=njacks)
+      if (parallel == TRUE){
+        ## prepare
+        if (is.null(cores) == TRUE) {
+          cores <- detectCores() - 2
+        }
+        para.clusters <- makeCluster(cores)
+        registerDoParallel(para.clusters)
+        ## start    
+        cat("Parallel computing...")
+        jackout <- foreach(i = 1:njacks, .combine = cbind,   
+                           .packages = "paneltools") %dopar% {  
+        rows_to_delete <- matching_set[, 1] == drop.id[i]  
+        matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE]  
+        matching_set_tmp[, drop.id[i]+2] <- 0  
+        getCoefs(Y = Ywide, 
+                 D = Dwide, 
+                 X = Xwide, 
+                 c = c, 
+                 a = a,  
+                 b = b, 
+                 matching_set = matching_set_tmp, 
+                 estimand = "ATT", 
+                 method = "Simple DID")  
+                           }  
+        stopCluster(para.clusters)
+      } else { # single core
+        for (i in 1:njacks) {  
+          # whether we drop a treated unit  
+          rows_to_delete <- matching_set[, 1] == drop.id[i]  
+          # delete the episode w.r.t. this unit if exist  
+          matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE] 
+          # change the control list w.r.t. unit i to 0 for all episodes
+          matching_set_tmp[, drop.id[i]+2] <- 0
+          # estimation for the i-th jackknife
+          jackout[, i] <- getCoefs(Y = Ywide, 
+                                   D = Dwide, 
+                                   X = Xwide, 
+                                   c = c, 
+                                   a = a, 
+                                   b = b, 
+                                   matching_set = matching_set_tmp, 
+                                   estimand = "ATT",
+                                   method = "Simple DID")
+          if (i%%50 == 0) cat(i) else cat(".")
+        }
       }
       # use the normal approximation
       coefs_bar <- rowMeans(jackout, na.rm = TRUE)
-      var <- (jackout-coefs_bar) %*% (t(jackout-coefs_bar))*(N-1)/N
+      var <- (jackout-coefs_bar) %*% (t(jackout-coefs_bar))*(njacks-1)/njacks
       se <- sqrt(var)
       CI <- c(coefs-qnorm(1-alpha/2, mean = 0, sd = 1)*se, coefs+qnorm(1-alpha/2, mean = 0, sd = 1)*se)
       est <- as.data.frame(cbind(coefs, CI))
       colnames(est) = c("Coefs", "CI.lower", "CI.upper")
       return(est)
     } else if (estimand == "Dynamic"){ # We use jackknife to get the confidence interval of ATT
-      jackout <- matrix(NA, nrow=a+1+b, ncol=N)
-      for (i in 1:N) {  
-        # whether we drop a treated unit  
-        rows_to_delete <- matching_set[, 1] == i  
-        # delete the episode w.r.t. this unit if exist  
-        matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE] 
-        # change the control list w.r.t. unit i to 0 for all episodes
-        matching_set_tmp[, i+2] <- 0
-        # estimation for the i-th jackknife
-        jackout[, i] <- t(getCoefs(Y = Ywide, 
-                                 D = Dwide, 
-                                 X = Xwide, 
-                                 c = c, 
-                                 a = a, 
-                                 b = b, 
-                                 matching_set = matching_set_tmp, 
-                                 estimand = "Dynamic",
-                                 method = "Simple DID"))
-        if (i%%50 == 0) cat(i) else cat(".")
+      cat("\nJackknife for Dynamic... \n")
+      jackout <- matrix(NA, nrow=a+1+b, ncol=njacks)
+      if (parallel == TRUE){
+        ## prepare
+        if (is.null(cores) == TRUE) {
+          cores <- detectCores() - 2
+        }
+        para.clusters <- makeCluster(cores)
+        registerDoParallel(para.clusters)
+        ## start    
+        cat("Parallel computing...")
+        jackout <- foreach(i = 1:njacks, .combine = cbind,   
+                           .packages = "paneltools") %dopar% {  
+        rows_to_delete <- matching_set[, 1] == drop.id[i]  
+        matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE]  
+        matching_set_tmp[, drop.id[i]+2] <- 0  
+        getCoefs(Y = Ywide, 
+                 D = Dwide, 
+                 X = Xwide, 
+                 c = c, 
+                 a = a, 
+                 b = b,  
+                 matching_set = matching_set_tmp, 
+                 estimand = "Dynamic", 
+                 method = "Simple DID")  
+                           }  
+        stopCluster(para.clusters)
+      } else { # single core
+        for (i in 1:njacks) {  
+          # whether we drop a treated unit  
+          rows_to_delete <- matching_set[, 1] == drop.id[i]  
+          # delete the episode w.r.t. this unit if exist  
+          matching_set_tmp <- matching_set[!rows_to_delete, , drop = FALSE] 
+          # change the control list w.r.t. unit i to 0 for all episodes
+          matching_set_tmp[, drop.id[i]+2] <- 0
+          # estimation for the i-th jackknife
+          jackout[, i] <- getCoefs(Y = Ywide, 
+                                   D = Dwide, 
+                                   X = Xwide, 
+                                   c = c, 
+                                   a = a, 
+                                   b = b, 
+                                   matching_set = matching_set_tmp, 
+                                   estimand = "Dynamic",
+                                   method = "Simple DID")
+          if (i%%50 == 0) cat(i) else cat(".")
+        }
       }
       # use the normal approximation
-      coefs_bar <- matrix(rep(matrix(rowMeans(jackout, na.rm = TRUE)), N), nrow = nrow(jackout))
-      var <- t(rowSums((jackout-coefs_bar)*(jackout-coefs_bar))*(N-1)/N)
+      coefs_bar <- matrix(rep(matrix(rowMeans(jackout, na.rm = TRUE)), njacks), nrow = nrow(jackout))
+      var <- t(rowSums((jackout-coefs_bar)*(jackout-coefs_bar))*(njacks-1)/njacks)
       se <- sqrt(var)
       CI <- t(rbind(coefs-qnorm(1-alpha/2, mean = 0, sd = 1)*se, coefs+qnorm(1-alpha/2, mean = 0, sd = 1)*se))
       periods <- c(-a:-1,0,1:b)
@@ -140,88 +207,200 @@ matching.CI <- function(sets,
     }
   } else if (vce == "bootstrap"){
     if (estimand == "ATT"){ # We use bootstrap to get the confidence interval of ATT
+      cat("\nBootstrapping for ATT... \n")
       bootout <- matrix(NA, nrow=1, ncol=nsim)
-      for (i in 1:nsim){
-        set.seed(i) # locally set seed, so that the outputs can be replicated
-        smp <- sample(1:N, N, replace=TRUE)
-        Yboot <- Ywide[, smp]
+      if (parallel == TRUE){
+        ## prepare
+        if (is.null(cores) == TRUE) {
+          cores <- detectCores() - 2
+        }
+        para.clusters <- makeCluster(cores)
+        registerDoParallel(para.clusters)
+        ## start    
+        cat("Parallel computing...")
+        bootout <- foreach(i = 1:nsim, .combine = cbind,  
+                           .packages = c("paneltools", "stats")) %dopar% {  
+        smp <- sample(1:N, N, replace=TRUE)  
+        Yboot <- Ywide[, smp]  
         Dboot <- Dwide[, smp]
-        Xboot <- list()  
-        for (p in 1:length(Xwide)) {  
-          Xboot[[paste0("Xwide", p)]] <- Xwide[[p]][, smp] 
+        if (is.null(Xwide)){
+          Xboot <- NULL
+        } else{
+          Xboot <- lapply(Xwide, function(x) x[, smp, drop = FALSE])
         }
         data_long <- wide2long(Y = Yboot,
-                               D = Dboot,
-                               X = Xboot,
-                               varInd = varInd,
-                               varTime = varTime,
-                               varY = varY,
-                               varD = varD,
-                               varX = varX)
-        epiboot <- matching(data = data_long, # data in long form
-                         Y = varY, # outcome
-                         D = varD, # treatment
-                         X = varX, # covariates
-                         index = index, # unit and time
-                         c = c, # number of carryover effect period 
-                         a = a, # number of pre-treatment period, lag
-                         b = b, # number of post-treatment period, lead
-                         type = "episode")
-        matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
-        bootout[, i] <- getCoefs(Y = Yboot, 
-                                 D = Dboot, 
-                                 X = Xboot, 
-                                 c = c, 
-                                 a = a, 
-                                 b = b, 
-                                 matching_set = matching_set_boot, 
-                                 estimand = "ATT",
-                                 method = "Simple DID")
-        if (i%%50 == 0) cat(i) else cat(".")
+                               D = Dboot,  
+                               X = Xboot, 
+                               varInd = varInd, 
+                               varTime = varTime, 
+                               varY = varY,  
+                               varD = varD, 
+                               varX = varX)  
+        epiboot <- matching(data = data_long,
+                            Y = varY, 
+                            D = varD, 
+                            X = varX,  
+                            index = index,  
+                            c = c, 
+                            a = a, 
+                            b = b, 
+                            type = "episode")  
+        matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]  
+        getCoefs(Y = Yboot, 
+                 D = Dboot,  
+                 X = Xboot, 
+                 c = c,  
+                 a = a, 
+                 b = b, 
+                 matching_set = matching_set_boot, 
+                 estimand = "ATT", 
+                 method = "Simple DID")  
+                           }    
+        stopCluster(para.clusters)
+      } else { # single core
+        for (i in 1:nsim){
+          # set.seed(i) # locally set seed, so that the outputs can be replicated
+          smp <- sample(1:N, N, replace=TRUE)
+          Yboot <- Ywide[, smp]
+          Dboot <- Dwide[, smp]
+          if (is.null(Xwide)){
+            Xboot <- NULL
+          } else{
+            Xboot <- lapply(Xwide, function(x) x[, smp, drop = FALSE])
+            # Xboot <- list()  
+            # for (p in 1:length(Xwide)) {  
+            # Xboot[[paste0("Xwide", p)]] <- Xwide[[p]][, smp] 
+            # }
+          }
+          data_long <- wide2long(Y = Yboot,
+                                 D = Dboot,
+                                 X = Xboot,
+                                 varInd = varInd,
+                                 varTime = varTime,
+                                 varY = varY,
+                                 varD = varD,
+                                 varX = varX)
+          epiboot <- matching(data = data_long, # data in long form
+                              Y = varY, # outcome
+                              D = varD, # treatment
+                              X = varX, # covariates
+                              index = index, # unit and time
+                              c = c, # number of carryover effect period 
+                              a = a, # number of pre-treatment period, lag
+                              b = b, # number of post-treatment period, lead
+                              type = "episode")
+          matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
+          bootout[, i] <- getCoefs(Y = Yboot, 
+                                   D = Dboot, 
+                                   X = Xboot, 
+                                   c = c, 
+                                   a = a, 
+                                   b = b, 
+                                   matching_set = matching_set_boot, 
+                                   estimand = "ATT",
+                                   method = "Simple DID")
+          if (i%%50 == 0) cat(i) else cat(".")
+        }
       }
       CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
       est <- as.data.frame(cbind(coefs, CI))
       colnames(est) = c("Coefs", "CI.lower", "CI.upper")
       return(est)
     } else if (estimand == "Dynamic"){ # We use bootstrap to get the confidence intervals of dynamic effects
+      cat("\nBootstrapping for ATT... \n")
       bootout <- matrix(NA, nrow=a+1+b, ncol=nsim)
-      for (i in 1:nsim){
-        set.seed(i) # locally set seed, so that the outputs can be replicated
-        smp <- sample(1:N, N, replace=TRUE)
-        Yboot <- Ywide[, smp]
+      if (parallel == TRUE){
+        ## prepare
+        if (is.null(cores) == TRUE) {
+          cores <- detectCores() - 2
+        }
+        para.clusters <- makeCluster(cores)
+        registerDoParallel(para.clusters)
+        ## start    
+        cat("Parallel computing...")
+        bootout <- foreach(i = 1:nsim, .combine = cbind,  
+                           .packages = c("paneltools", "stats")) %dopar% {  
+        smp <- sample(1:N, N, replace=TRUE)  
+        Yboot <- Ywide[, smp]  
         Dboot <- Dwide[, smp]
-        Xboot <- list()  
-        for (p in 1:length(Xwide)) {  
-          Xboot[[paste0("Xwide", p)]] <- Xwide[[p]][, smp] 
+        if (is.null(Xwide)){
+          Xboot <- NULL
+        } else{
+          Xboot <- lapply(Xwide, function(x) x[, smp, drop = FALSE])
         }
         data_long <- wide2long(Y = Yboot,
-                               D = Dboot,
-                               X = Xboot,
-                               varInd = varInd,
-                               varTime = varTime,
+                               D = Dboot, 
+                               X = Xboot, 
+                               varInd = varInd, 
+                               varTime = varTime, 
                                varY = varY,
-                               varD = varD,
-                               varX = varX)
-        epiboot <- matching(data = data_long, # data in long form
-                         Y = varY, # outcome
-                         D = varD, # treatment
-                         X = varX, # covariates
-                         index = index, # unit and time
-                         c = c, # number of carryover effect period 
-                         a = a, # number of pre-treatment period, lag
-                         b = b, # number of post-treatment period, lead
-                         type = "episode")
-        matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
-        bootout[, i] <- t(getCoefs(Y = Yboot, 
-                                 D = Dboot, 
-                                 X = Xboot, 
-                                 c = c, 
-                                 a = a, 
-                                 b = b, 
-                                 matching_set = matching_set_boot, 
-                                 estimand = "Dynamic",
-                                 method = "Simple DID"))
-        if (i%%50 == 0) cat(i) else cat(".")
+                               varD = varD, 
+                               varX = varX)  
+        epiboot <- matching(data = data_long,
+                            Y = varY,
+                            D = varD,
+                            X = varX,
+                            index = index,
+                            c = c,
+                            a = a,
+                            b = b,
+                            type = "episode")  
+        matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]  
+        getCoefs(Y = Yboot, 
+                 D = Dboot, 
+                 X = Xboot, 
+                 c = c, 
+                 a = a, 
+                 b = b,
+                 matching_set = matching_set_boot, 
+                 estimand = "Dynamic",
+                 method = "Simple DID")  
+                           }    
+        stopCluster(para.clusters)
+      } else { # single core
+        for (i in 1:nsim){
+          # set.seed(i) # locally set seed, so that the outputs can be replicated
+          smp <- sample(1:N, N, replace=TRUE)
+          Yboot <- Ywide[, smp]
+          Dboot <- Dwide[, smp]
+          if (is.null(Xwide)){
+            Xboot <- NULL
+          } else{
+            Xboot <- lapply(Xwide, function(x) x[, smp, drop = FALSE])
+            # Xboot <- list()  
+            # for (p in 1:length(Xwide)) {  
+            # Xboot[[paste0("Xwide", p)]] <- Xwide[[p]][, smp] 
+            # }
+          }
+          data_long <- wide2long(Y = Yboot,
+                                 D = Dboot,
+                                 X = Xboot,
+                                 varInd = varInd,
+                                 varTime = varTime,
+                                 varY = varY,
+                                 varD = varD,
+                                 varX = varX)
+          epiboot <- matching(data = data_long, # data in long form
+                              Y = varY, # outcome
+                              D = varD, # treatment
+                              X = varX, # covariates
+                              index = index, # unit and time
+                              c = c, # number of carryover effect period 
+                              a = a, # number of pre-treatment period, lag
+                              b = b, # number of post-treatment period, lead
+                              type = "episode")
+          matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
+          bootout[, i] <- getCoefs(Y = Yboot, 
+                                   D = Dboot, 
+                                   X = Xboot, 
+                                   c = c, 
+                                   a = a, 
+                                   b = b, 
+                                   matching_set = matching_set_boot, 
+                                   estimand = "Dynamic",
+                                   method = "Simple DID")
+          if (i%%50 == 0) cat(i) else cat(".")
+        }
       }
       CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
       periods <- c(-a:-1,0,1:b)
