@@ -10,7 +10,9 @@ matching.CI(
   estimand = "Dynamic",
   method = "Simple DID",
   vce = "jackknife",
-  nsim = 200
+  nsim = 200,
+  parallel = TRUE,
+  cores = 4
 )
 }
 \arguments{
@@ -24,7 +26,11 @@ matching.CI(
 
 \item{vce}{"jackknife" or "bootstrap"}
 
-\item{nsim}{numbers of bootstrap}
+\item{nsim}{numbers of bootstrap, also used for limit the number of jackknife}
+
+\item{parallel}{whether do parallel computing}
+
+\item{cores}{cores used in the parallel computing}
 }
 \value{
 \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
