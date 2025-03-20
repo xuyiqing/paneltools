@@ -11,6 +11,8 @@
 #' @param nsim numbers of bootstrap, also used for limit the number of jackknife
 #' @param parallel whether do parallel computing
 #' @param cores cores used in the parallel computing
+#' @param demean used in mbal/kbal
+#' @param imbal.tol used in mbal/kbal, if FALSE, will only keep the episodes with bias.ratio < 1e-5
 #'  
 #' @return \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
 #' @author Hongyi Jiang <hyjiang2017@nsd.pku.edu.cn>
@@ -23,7 +25,9 @@ matching.CI <- function(sets,
                      vce = "jackknife", 
                      nsim = 200,
                      parallel = TRUE, ## parallel computing
-                     cores = 4
+                     cores = 4,
+                     demean = TRUE,
+                     imbal.tol = FALSE
                      ){
   # get the confidence interval of treatment effect
   
@@ -60,28 +64,23 @@ matching.CI <- function(sets,
   N <- dim(Dwide)[2]
   
   ## get the estimated coefficients
-  if (estimand == "Dynamic"){
-    coefs <- getCoefs(Y = Ywide, 
+  coefs <- getCoefs(Y = Ywide, 
                     D = Dwide, 
-                    X = Xwide, 
+                    X = Xwide,
+                    varY = varY,  
+                    varD = varD, 
+                    varX = varX,
                     c = c, 
                     a = a, 
                     b = b, 
                     matching_set = matching_set, 
-                    estimand = "Dynamic",
-                    method = "Simple DID")
-  } else if (estimand == "ATT"){
-    coefs <- getCoefs(Y = Ywide, 
-                    D = Dwide, 
-                    X = Xwide, 
-                    c = c, 
-                    a = a, 
-                    b = b, 
-                    matching_set = matching_set, 
-                    estimand = "ATT",
-                    method = "Simple DID")
-  }
+                    estimand = estimand,
+                    method = method,
+                    demean = demean,
+                    imbal.tol = imbal.tol
+                    )
   
+  ## uncertainty estimates
   if (vce == "jackknife"){
     if (nsim > N) {
       njacks <- N
@@ -108,13 +107,19 @@ matching.CI <- function(sets,
         matching_set_tmp[, drop.id[i]+2] <- 0  
         getCoefs(Y = Ywide, 
                  D = Dwide, 
-                 X = Xwide, 
+                 X = Xwide,
+                 varY = varY,  
+                 varD = varD, 
+                 varX = varX,
                  c = c, 
                  a = a,  
                  b = b, 
                  matching_set = matching_set_tmp, 
                  estimand = "ATT", 
-                 method = "Simple DID")  
+                 method = method,
+                 demean = demean,
+                 imbal.tol = imbal.tol
+        )  
                            }  
         stopCluster(para.clusters)
       } else { # single core
@@ -128,13 +133,19 @@ matching.CI <- function(sets,
           # estimation for the i-th jackknife
           jackout[, i] <- getCoefs(Y = Ywide, 
                                    D = Dwide, 
-                                   X = Xwide, 
+                                   X = Xwide,
+                                   varY = varY,  
+                                   varD = varD, 
+                                   varX = varX,
                                    c = c, 
                                    a = a, 
                                    b = b, 
                                    matching_set = matching_set_tmp, 
                                    estimand = "ATT",
-                                   method = "Simple DID")
+                                   method = method,
+                                   demean = demean,
+                                   imbal.tol = imbal.tol
+          )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
@@ -165,13 +176,19 @@ matching.CI <- function(sets,
         matching_set_tmp[, drop.id[i]+2] <- 0  
         getCoefs(Y = Ywide, 
                  D = Dwide, 
-                 X = Xwide, 
+                 X = Xwide,
+                 varY = varY,  
+                 varD = varD, 
+                 varX = varX,
                  c = c, 
                  a = a, 
                  b = b,  
                  matching_set = matching_set_tmp, 
                  estimand = "Dynamic", 
-                 method = "Simple DID")  
+                 method = method,
+                 demean = demean,
+                 imbal.tol = imbal.tol
+        )  
                            }  
         stopCluster(para.clusters)
       } else { # single core
@@ -186,12 +203,18 @@ matching.CI <- function(sets,
           jackout[, i] <- getCoefs(Y = Ywide, 
                                    D = Dwide, 
                                    X = Xwide, 
+                                   varY = varY,  
+                                   varD = varD, 
+                                   varX = varX,
                                    c = c, 
                                    a = a, 
                                    b = b, 
                                    matching_set = matching_set_tmp, 
                                    estimand = "Dynamic",
-                                   method = "Simple DID")
+                                   method = method,
+                                   demean = demean,
+                                   imbal.tol = imbal.tol
+          )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
@@ -249,12 +272,18 @@ matching.CI <- function(sets,
         getCoefs(Y = Yboot, 
                  D = Dboot,  
                  X = Xboot, 
+                 varY = varY,  
+                 varD = varD, 
+                 varX = varX,
                  c = c,  
                  a = a, 
-                 b = b, 
+                 b = b,
                  matching_set = matching_set_boot, 
                  estimand = "ATT", 
-                 method = "Simple DID")  
+                 method = method,
+                 demean = demean,
+                 imbal.tol = imbal.tol
+        )  
                            }    
         stopCluster(para.clusters)
       } else { # single core
@@ -292,13 +321,19 @@ matching.CI <- function(sets,
           matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
           bootout[, i] <- getCoefs(Y = Yboot, 
                                    D = Dboot, 
-                                   X = Xboot, 
+                                   X = Xboot,
+                                   varY = varY,  
+                                   varD = varD, 
+                                   varX = varX,
                                    c = c, 
                                    a = a, 
                                    b = b, 
                                    matching_set = matching_set_boot, 
                                    estimand = "ATT",
-                                   method = "Simple DID")
+                                   method = method,
+                                   demean = demean,
+                                   imbal.tol = imbal.tol
+          )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
@@ -307,7 +342,7 @@ matching.CI <- function(sets,
       colnames(est) = c("Coefs", "CI.lower", "CI.upper")
       return(est)
     } else if (estimand == "Dynamic"){ # We use bootstrap to get the confidence intervals of dynamic effects
-      cat("\nBootstrapping for ATT... \n")
+      cat("\nBootstrapping for Dynamic... \n")
       bootout <- matrix(NA, nrow=a+1+b, ncol=nsim)
       if (parallel == TRUE){
         ## prepare
@@ -348,13 +383,19 @@ matching.CI <- function(sets,
         matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]  
         getCoefs(Y = Yboot, 
                  D = Dboot, 
-                 X = Xboot, 
+                 X = Xboot,
+                 varY = varY,  
+                 varD = varD, 
+                 varX = varX,
                  c = c, 
                  a = a, 
                  b = b,
                  matching_set = matching_set_boot, 
                  estimand = "Dynamic",
-                 method = "Simple DID")  
+                 method = method,
+                 demean = demean,
+                 imbal.tol = imbal.tol
+        )  
                            }    
         stopCluster(para.clusters)
       } else { # single core
@@ -392,13 +433,19 @@ matching.CI <- function(sets,
           matching_set_boot <- epiboot[["matrix of match"]][["M_match"]]
           bootout[, i] <- getCoefs(Y = Yboot, 
                                    D = Dboot, 
-                                   X = Xboot, 
+                                   X = Xboot,
+                                   varY = varY,  
+                                   varD = varD, 
+                                   varX = varX,
                                    c = c, 
                                    a = a, 
                                    b = b, 
                                    matching_set = matching_set_boot, 
                                    estimand = "Dynamic",
-                                   method = "Simple DID")
+                                   method = method,
+                                   demean = demean,
+                                   imbal.tol = imbal.tol
+          )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
@@ -413,54 +460,141 @@ matching.CI <- function(sets,
   }
 }
 
-getCoefs <- function(Y, D, X, c, a, b, matching_set, estimand, method){
+getCoefs <- function(Y, 
+                     D, 
+                     X, 
+                     varY, 
+                     varD, 
+                     varX, 
+                     c, 
+                     a, 
+                     b, 
+                     matching_set, 
+                     estimand, 
+                     method, 
+                     demean = TRUE, 
+                     imbal.tol = FALSE,
+                     balance.table = FALSE
+                     ){
   
-  if (method == "Simple DID"){ # We use simple mean of the outcome
-    if (estimand == "ATT"){ # We estimate the average treatment effect
-      est <- matrix(NA, nrow=dim(matching_set)[1], ncol=1)
-      for (i in 1:dim(matching_set)[1]){
-        # get the indicator for the treated unit, treated time and control unit
-        INDtreat <- as.vector(matching_set[i,1])
-        INDtime <- as.vector(matching_set[i,2])
-        INDcontrol <- as.vector(matching_set[i, -1:-2])
-        # get the matrix respectively
-        Ytreat <- as.matrix(Y[(INDtime-c-a):(INDtime+b), INDtreat], nrow=c+a+1+b, ncol=1) # initial Ytreat
-        Ycontrol <- as.matrix(Y[(INDtime-c-a):(INDtime+b), (INDcontrol==1)], nrow=c+a+1+b, ncol=sum(matching_set[i, -1:-2])) # initial Ycontrol
-        # simple DID: Difference in mean
-        Ytreatpost <- mean(Ytreat[(c+a+1):(c+a+1+b),])
-        Ytreatpre <- mean(Ytreat[(c+1):(c+a),])
-        Ycontrolpost <- mean(Ycontrol[(c+a+1):(c+a+1+b),])
-        Ycontrolpre <- mean(Ycontrol[(c+1):(c+a),])
-        est[i,] <- (Ytreatpost-Ytreatpre)-(Ycontrolpost-Ycontrolpre)
+  est <- matrix(NA, nrow=dim(matching_set)[1], ncol=1)
+  est_dynamic <- matrix(NA, nrow=dim(matching_set)[1], ncol=a+1+b)
+  
+  for (i in 1:dim(matching_set)[1]){
+    # get the indicator for the treated unit, treated time and control unit
+    INDtreat <- as.vector(matching_set[i,1])
+    INDtime <- as.vector(matching_set[i,2])
+    INDcontrol <- as.vector(matching_set[i, -1:-2])
+    
+    # other columns
+    Ntmp <- 1 + sum(matching_set[i, -1:-2])
+    unitstmp <- matrix(NA, nrow = Ntmp, ncol = 1) 
+    unitstmp[1,1] <- INDtreat
+    unitstmp[-1,1] <- as.matrix(1:length(INDcontrol),nrow=1,ncol=length(INDcontrol))[(INDcontrol==1)]
+    treattmp <- matrix(0, nrow = Ntmp, ncol = 1)
+    treattmp[1,1] <- 1
+    T0tmp <- matrix(a, nrow = Ntmp, ncol = 1)
+    
+    # preparation
+    if (is.null(X) & is.null(varX)){
+      # get Y
+      Ytreat <- as.matrix(Y[(INDtime-a):(INDtime+b), INDtreat], nrow=a+1+b, ncol=1) # initial Ytreat
+      Ycontrol <- as.matrix(Y[(INDtime-a):(INDtime+b), (INDcontrol==1)], nrow=a+1+b, ncol=sum(matching_set[i, -1:-2])) # initial Ycontrol
+      outcome <- t(cbind(Ytreat,Ycontrol))
+      Ttot <- as.matrix(1:(a+1+b),nrow=a+1+b ,ncol=1)
+      Y.var <- paste0(varY, Ttot)
+      colnames(outcome) <- Y.var
+      data.wide <- cbind.data.frame(id = 1:Ntmp, unit = unitstmp, treat = treattmp, T0 = T0tmp, outcome)
+    } else{
+      # get Y
+      Ytreat <- as.matrix(Y[(INDtime-a):(INDtime+b), INDtreat], nrow=a+1+b, ncol=1) # initial Ytreat
+      Ycontrol <- as.matrix(Y[(INDtime-a):(INDtime+b), (INDcontrol==1)], nrow=a+1+b, ncol=sum(matching_set[i, -1:-2])) # initial Ycontrol
+      outcome <- t(cbind(Ytreat,Ycontrol))
+      Ttot <- as.matrix(1:(a+1+b),nrow=a+1+b ,ncol=1)
+      Y.var <- paste0(varY, Ttot)
+      colnames(outcome) <- Y.var
+      # get X
+      Xtreat <- matrix(NA, nrow = 1, ncol = length(varX))
+      Xcontrol <- matrix(NA, nrow = sum(matching_set[i, -1:-2]), ncol = length(varX))
+      for (p in 1:length(varX)) {  
+        Xtreat[, p] <- t(mean(X[[paste0("Xwide", p)]][(INDtime-a):(INDtime-1), INDtreat]))
+        Xcontrol[, p] <- t(colMeans(X[[paste0("Xwide", p)]][(INDtime-a):(INDtime-1), (INDcontrol==1)])) 
       }
-      ATT <- mean(est, na.rm = TRUE)
-      return(ATT)
-    } else if (estimand == "Dynamic"){ # We estimate the dynamic treatment effect
-      est_dynamic <- matrix(NA, nrow=dim(matching_set)[1], ncol=a+1+b)
-      for (i in 1:dim(matching_set)[1]){
-        # get the indicator for the treated unit, treated time and control unit
-        INDtreat <- as.vector(matching_set[i,1])
-        INDtime <- as.vector(matching_set[i,2])
-        INDcontrol <- as.vector(matching_set[i,-1:-2])
-        # get the matrix respectively
-        Ytreat <- as.matrix(Y[(INDtime-c-a):(INDtime+b),INDtreat],nrow=c+a+1+b,ncol=1) # initial Ytreat
-        Ycontrol <- as.matrix(Y[(INDtime-c-a):(INDtime+b),(INDcontrol==1)],nrow=c+a+1+b,ncol=sum(matching_set[i,-1:-2])) # initial Ycontrol
-        # dynamic DID: Difference in mean for each period
-        Ytreatbench <- matrix(mean(Ytreat[(c+1):(c+a),]),nrow=a+1+b,ncol=1) # using the whole pre-treatment period as benchmark
-        Ycontrolbench <- matrix(mean(Ycontrol[(c+1):(c+a),]),nrow=a+1+b,ncol=1) # using the whole pre-treatment period as benchmark
-        Ytreatdyn <- matrix(Ytreat[(c+1):(c+a+1+b),],nrow=a+1+b,ncol=1)
-        Ycontroldyn <- as.matrix(rowMeans(Ycontrol[(c+1):(c+a+1+b),]),nrow=a+1+b,ncol=1)
-        est_dynamic[i,] <- t((Ytreatdyn-Ycontroldyn)-(Ytreatbench-Ycontrolbench))
-      }
-      Dynamic <- colMeans(est_dynamic, na.rm = TRUE)
-      return(Dynamic)
+      Xvar <- rbind(Xtreat,Xcontrol)
+      colnames(Xvar) <- varX
+      data.wide <- cbind.data.frame(id = 1:Ntmp, unit = unitstmp, treat = treattmp, T0 = T0tmp, outcome, Xvar)
     }
-  } else{
-    stop("Other method will be added in the later version.")
+    id.tr <- which(data.wide$treat == 1)
+    id.co <- which(data.wide$treat == 0)
+    T0 <- unique(data.wide$T0[id.tr])
+    
+    if (method == "Simple DID"){
+      # simple DID: Difference in mean
+      Ytreatpost <- mean(Ytreat[(a+1):(a+1+b),])
+      Ytreatpre <- mean(Ytreat[1:a,])
+      Ycontrolpost <- mean(Ycontrol[(a+1):(a+1+b),])
+      Ycontrolpre <- mean(Ycontrol[1:a,])
+      est[i,] <- (Ytreatpost-Ytreatpre)-(Ycontrolpost-Ycontrolpre)
+      # dynamic DID: Difference in mean for each period
+      Ytreatbench <- matrix(mean(Ytreat[1:a,]),nrow=a+1+b,ncol=1) # using the whole pre-treatment period as benchmark
+      Ycontrolbench <- matrix(mean(Ycontrol[1:a,]),nrow=a+1+b,ncol=1) # using the whole pre-treatment period as benchmark
+      Ytreatdyn <- matrix(Ytreat[1:(a+1+b),],nrow=a+1+b,ncol=1)
+      Ycontroldyn <- as.matrix(rowMeans(Ycontrol[1:(a+1+b),]),nrow=a+1+b,ncol=1)
+      est_dynamic[i,] <- t((Ytreatdyn-Ycontroldyn)-(Ytreatbench-Ycontrolbench))
+    } else if (method == "mbal"){ # "mbal"
+      out <- tjbal.core(data = data.wide, Y = varY, X = varX, Ttot = Ttot, T0 = T0, id.tr = id.tr, id.co = id.co,
+                        demean = demean, estimator = "mean", info = FALSE, balance.table = FALSE)
+      if (imbal.tol == TRUE){
+        est[i,] <- out$att.avg
+        for (p in 1:(a+1+b)) {  
+        est_dynamic[i, p] <- out[["att"]][[p]]
+        }
+      } else{
+        if (out$bias.ratio < 1e-5){
+          est[i,] <- out$att.avg
+          for (p in 1:(a+1+b)) {  
+            est_dynamic[i, p] <- out[["att"]][[p]]
+          }
+        }
+      }
+    } else if (method == "kbal"){ # "kbal"
+      out <- tjbal.core(data = data.wide, Y = varY, X = varX, Ttot = Ttot, T0 = T0, id.tr = id.tr, id.co = id.co,
+                        demean = demean, estimator = "kernel", info = FALSE, balance.table = FALSE)
+      if (imbal.tol == TRUE){
+        est[i,] <- out$att.avg
+        for (p in 1:(a+1+b)) {  
+          est_dynamic[i, p] <- out[["att"]][[p]]
+        }
+      } else{
+        if (out$bias.ratio < 1e-5){
+          est[i,] <- out$att.avg
+          for (p in 1:(a+1+b)) {  
+            est_dynamic[i, p] <- out[["att"]][[p]]
+          }
+        }
+      }
+    }
+    
+  }
+  
+  # output
+  ATT <- mean(est, na.rm = TRUE)
+  Dynamic <- colMeans(est_dynamic, na.rm = TRUE)
+  if (estimand == "ATT"){
+    return(ATT)
+  } else if (estimand == "Dynamic"){
+    return(Dynamic)
   }
 }
 
-wide2long <- function(Y, D, X, varInd, varTime, varY, varD, varX){
+wide2long <- function(Y,
+                      D,
+                      X, 
+                      varInd,
+                      varTime,
+                      varY, 
+                      varD, 
+                      varX){
   
   TT <- dim(D)[1] # length of time
   N <- dim(D)[2] # length of unit
