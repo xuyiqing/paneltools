@@ -12,7 +12,9 @@ matching.CI(
   vce = "jackknife",
   nsim = 200,
   parallel = TRUE,
-  cores = 4
+  cores = 4,
+  demean = TRUE,
+  imbal.tol = FALSE
 )
 }
 \arguments{
@@ -31,6 +33,10 @@ matching.CI(
 \item{parallel}{whether do parallel computing}
 
 \item{cores}{cores used in the parallel computing}
+
+\item{demean}{used in mbal/kbal}
+
+\item{imbal.tol}{used in mbal/kbal, if FALSE, will only keep the episodes with bias.ratio < 1e-5}
 }
 \value{
 \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
