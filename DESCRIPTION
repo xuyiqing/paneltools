@@ -11,7 +11,7 @@ Maintainer: Ziyi Liu <ziyiliu2020@gmail.com>
 Description: Provides implementations of common-used data preprocessing and results visualization for panel data analyses, including calculation of relative periods to the treatment and the visualization of dynamic treatment effects.  
 NeedsCompilation: yes
 License: MIT + file LICENSE
-Imports: ggplot2, dplyr, tidyr, rlang, parallel, foreach, doParallel
+Imports: ggplot2, dplyr, tidyr, rlang, parallel, foreach, doParallel, tjbal, future, kbal
 SystemRequirements: A C++11 compiler.
 Depends: R (>= 3.5.0)
 LazyData: true
@@ -19,11 +19,7 @@ RoxygenNote: 7.3.2
 Packaged: 2023-06-07 01:36:32 UTC; ziyil
 Author: Ziyi Liu [aut, cre],
   Yiqing Xu [aut] (<https://orcid.org/0000-0003-2041-6671>)
-Suggests: 
-    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Encoding: UTF-8
-Suggests:   
-    knitr,  
-    rmarkdown  
-VignetteBuilder: knitr 
+Suggests:
+    testthat (>= 3.0.0)
