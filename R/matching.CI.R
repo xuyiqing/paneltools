@@ -13,6 +13,8 @@
 #' @param cores cores used in the parallel computing
 #' @param demean used in mbal/kbal
 #' @param imbal.tol used in mbal/kbal, if FALSE, will only keep the episodes with bias.ratio < 1e-5
+#' @param term.alpha named vector of ridge penalties, only takes 0 or 1
+#' @param cv whether to use cross validation
 #'  
 #' @return \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
 #' @author Hongyi Jiang <hyjiang2017@nsd.pku.edu.cn>
@@ -27,7 +29,9 @@ matching.CI <- function(sets,
                      parallel = TRUE, ## parallel computing
                      cores = 4,
                      demean = TRUE,
-                     imbal.tol = FALSE
+                     imbal.tol = FALSE,
+                     term.alpha = NULL,
+                     cv = NULL
                      ){
   # get the confidence interval of treatment effect
   
@@ -77,7 +81,9 @@ matching.CI <- function(sets,
                     estimand = estimand,
                     method = method,
                     demean = demean,
-                    imbal.tol = imbal.tol
+                    imbal.tol = imbal.tol,
+                    term.alpha = term.alpha,
+                    cv = cv
                     )
   
   ## uncertainty estimates
@@ -118,7 +124,9 @@ matching.CI <- function(sets,
                  estimand = "ATT", 
                  method = method,
                  demean = demean,
-                 imbal.tol = imbal.tol
+                 imbal.tol = imbal.tol,
+                 term.alpha = term.alpha,
+                 cv = cv
         )  
                            }  
         stopCluster(para.clusters)
@@ -144,7 +152,9 @@ matching.CI <- function(sets,
                                    estimand = "ATT",
                                    method = method,
                                    demean = demean,
-                                   imbal.tol = imbal.tol
+                                   imbal.tol = imbal.tol,
+                                   term.alpha = term.alpha,
+                                   cv = cv
           )
           if (i%%50 == 0) cat(i) else cat(".")
         }
@@ -187,7 +197,9 @@ matching.CI <- function(sets,
                  estimand = "Dynamic", 
                  method = method,
                  demean = demean,
-                 imbal.tol = imbal.tol
+                 imbal.tol = imbal.tol,
+                 term.alpha = term.alpha,
+                 cv = cv
         )  
                            }  
         stopCluster(para.clusters)
@@ -213,7 +225,9 @@ matching.CI <- function(sets,
                                    estimand = "Dynamic",
                                    method = method,
                                    demean = demean,
-                                   imbal.tol = imbal.tol
+                                   imbal.tol = imbal.tol,
+                                   term.alpha = term.alpha,
+                                   cv = cv
           )
           if (i%%50 == 0) cat(i) else cat(".")
         }
@@ -282,7 +296,9 @@ matching.CI <- function(sets,
                  estimand = "ATT", 
                  method = method,
                  demean = demean,
-                 imbal.tol = imbal.tol
+                 imbal.tol = imbal.tol,
+                 term.alpha = term.alpha,
+                 cv = cv
         )  
                            }    
         stopCluster(para.clusters)
@@ -332,12 +348,15 @@ matching.CI <- function(sets,
                                    estimand = "ATT",
                                    method = method,
                                    demean = demean,
-                                   imbal.tol = imbal.tol
+                                   imbal.tol = imbal.tol,
+                                   term.alpha = term.alpha,
+                                   cv = cv
           )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
-      CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
+      # CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
+      CI <- t(apply(bootout, 1, quantile, probs = c(alpha/2, 1 - alpha/2), na.rm = TRUE))
       est <- as.data.frame(cbind(coefs, CI))
       colnames(est) = c("Coefs", "CI.lower", "CI.upper")
       return(est)
@@ -394,7 +413,9 @@ matching.CI <- function(sets,
                  estimand = "Dynamic",
                  method = method,
                  demean = demean,
-                 imbal.tol = imbal.tol
+                 imbal.tol = imbal.tol,
+                 term.alpha = term.alpha,
+                 cv = cv
         )  
                            }    
         stopCluster(para.clusters)
@@ -444,12 +465,15 @@ matching.CI <- function(sets,
                                    estimand = "Dynamic",
                                    method = method,
                                    demean = demean,
-                                   imbal.tol = imbal.tol
+                                   imbal.tol = imbal.tol,
+                                   term.alpha = term.alpha,
+                                   cv = cv
           )
           if (i%%50 == 0) cat(i) else cat(".")
         }
       }
-      CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
+      # CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
+      CI <- t(apply(bootout, 1, quantile, probs = c(alpha/2, 1 - alpha/2), na.rm = TRUE))
       periods <- c(-a:-1,0,1:b)
       est <- as.data.frame(cbind(periods, coefs, CI))
       colnames(est) = c("Periods","Coefs", "CI.lower", "CI.upper")
@@ -474,7 +498,8 @@ getCoefs <- function(Y,
                      method, 
                      demean = TRUE, 
                      imbal.tol = FALSE,
-                     balance.table = FALSE
+                     term.alpha = NULL,
+                     cv = NULL
                      ){
   
   est <- matrix(NA, nrow=dim(matching_set)[1], ncol=1)
@@ -572,6 +597,16 @@ getCoefs <- function(Y,
             est_dynamic[i, p] <- out[["att"]][[p]]
           }
         }
+      }
+    } else if (method == "hbal"){ # "hbal"
+      Tpre <- as.matrix(1:a, nrow=a, ncol=1)
+      xvars <- c(paste0(varY, Tpre), varX) # covariates
+      hbal.out <- hbal(Treat = 'treat', X = xvars, data = data.wide, term.alpha = term.alpha, cv = cv)
+      if (hbal.out$converged == 1){
+        w <- -hbal.out$weights
+        w[1] <- 1
+        est_dynamic[i,] <- w %*% outcome
+        est[i,] <- mean((w %*% outcome)[,(a+1):(a+1+b)])
       }
     }
     

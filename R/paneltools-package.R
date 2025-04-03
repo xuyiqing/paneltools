@@ -17,6 +17,10 @@
 #' 
 #' @keywords package
 #'
+#' @import tjbal
+#' @import future
+#' @import kbal
+#' @import hbal
 #' @importFrom foreach "%dopar%" foreach
 #' @importFrom parallel detectCores makeCluster stopCluster
 #' @importFrom doParallel registerDoParallel
