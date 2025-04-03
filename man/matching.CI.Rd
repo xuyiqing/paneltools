@@ -14,7 +14,9 @@ matching.CI(
   parallel = TRUE,
   cores = 4,
   demean = TRUE,
-  imbal.tol = FALSE
+  imbal.tol = FALSE,
+  term.alpha = NULL,
+  cv = NULL
 )
 }
 \arguments{
@@ -37,6 +39,10 @@ matching.CI(
 \item{demean}{used in mbal/kbal}
 
 \item{imbal.tol}{used in mbal/kbal, if FALSE, will only keep the episodes with bias.ratio < 1e-5}
+
+\item{term.alpha}{named vector of ridge penalties, only takes 0 or 1}
+
+\item{cv}{whether to use cross validation}
 }
 \value{
 \code{matching.CI} return a dataframe containing the periods, estimates, and the CI
