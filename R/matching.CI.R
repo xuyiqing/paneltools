@@ -357,7 +357,10 @@ matching.CI <- function(sets,
       }
       # CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
       CI <- t(apply(bootout, 1, quantile, probs = c(alpha/2, 1 - alpha/2), na.rm = TRUE))
-      est <- as.data.frame(cbind(coefs, CI))
+      CI.lower <- coefs - (CI[,2] - coefs)
+      CI.upper <- coefs + (coefs - CI[,1])
+      # est <- as.data.frame(cbind(coefs, CI))
+      est <- as.data.frame(cbind(coefs, CI.lower, CI.upper))
       colnames(est) = c("Coefs", "CI.lower", "CI.upper")
       return(est)
     } else if (estimand == "Dynamic"){ # We use bootstrap to get the confidence intervals of dynamic effects
@@ -474,8 +477,11 @@ matching.CI <- function(sets,
       }
       # CI <- t(apply(bootout, 1, quantile,c(alpha/2,1-alpha/2)))
       CI <- t(apply(bootout, 1, quantile, probs = c(alpha/2, 1 - alpha/2), na.rm = TRUE))
+      CI.lower <- coefs - (CI[,2] - coefs)
+      CI.upper <- coefs + (coefs - CI[,1])
       periods <- c(-a:-1,0,1:b)
-      est <- as.data.frame(cbind(periods, coefs, CI))
+      # est <- as.data.frame(cbind(periods, coefs, CI))
+      est <- as.data.frame(cbind(periods, coefs, CI.lower, CI.upper))
       colnames(est) = c("Periods","Coefs", "CI.lower", "CI.upper")
       return(est)
     }
