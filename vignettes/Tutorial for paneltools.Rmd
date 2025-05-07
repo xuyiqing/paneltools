@@ -1,0 +1,215 @@
+---
+title: "Tutorial for paneltools"
+author: "Hongyi Jiang"
+date: "2025-02-20"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    toc_depth: 2
+    number_sections: false
+    theme: lumen
+bibliography: tscs_references.bib     
+vignette: >
+  %\VignetteIndexEntry{Tutorial for paneltools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8} 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Installing Packages
+
+```{r message = FALSE, warning = FALSE}
+# install "paneltools"
+if ("paneltools" %in% rownames(installed.packages()) == FALSE) {
+  devtools::install_github("xuyiqing/paneltools")
+}
+```
+
+```{r message = FALSE, warning = FALSE}
+rm(list = ls())
+# package for matching.R
+library(tidyr)
+library(dplyr)
+library(rlang)
+
+# package for matching.plot.R and matching.CIplot.R
+library(ggplot2)
+
+# package for matching.CI.R
+library(foreach)
+library(parallel)
+library(iterators)
+library(doParallel)
+```
+
+Lood data:
+
+```{r data}
+# check the paneltools
+library(paneltools)
+data(paneltools) # load the test data
+```
+
+# Example 1: Panel w/ Covariates
+
+We first use the data from @Grumbach2020, which uses district-election year level TSCS data from US House general elections between 1980 and 2012, argues that the presence of Asian (Black/Latino) candidates in general elections leads to an increase in the proportion of campaign contributions by Asian (Black/Latino) donors.
+
+## Rename the data
+
+```{r pressure, echo=FALSE}
+data_YX <- gs2020 # data with covariates
+```
+
+## Matching according to the tuning parameter
+
+The variable `dfe` and `cycle` serve as the unit and time index, respectively. The treatment variable is `cand_A_all`, the outcome of interest is `general_sharetotal_A_all`, and the covariates included in the analysis are `cand_B_all` and `cand_H_all`.
+
+We set the carryover period c equals to 1, the pre treatment period a equals to 4, and the post treatment period b equals to 1. Notice that in this package, the post treatment period does not include the period for the treatment, thus actually if an individual is chosen in this setting, it will be treated 2 periods.
+
+In the function `matching`, the default type is `episode`, which means that for each valid "id-time" treated pair, we search its valid control list (thus the corresponding period). It is possible that there are several episodes sharing the same control list, one can simplify the output as `cohort`, which means that for eahc "time", we search its valid treated units and the corresponding control list.
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+# test matching.R
+Y <- c("general_sharetotal_A_all")
+D <- c("cand_A_all")
+X <- c("cand_B_all","cand_H_all")
+index <- c("dfe","cycle")
+c <- 1
+a <- 4
+b <- 1
+
+episode_YX <- matching(data = data_YX, Y = Y, D = D, X = X, index = index, c = c, a = a, b = b)
+cohort_YX <- matching(data = data_YX, Y = Y, D = D, X = X, index = index, c = c, a = a, b = b, type = "cohort")
+```
+
+## Visualize the matching results
+
+We can then use `matching.plot` to visualize a certain episode or cohort.
+
+```{r, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+# test matching.plot.R
+Dwide_YX <- episode_YX[["wide panel"]][["Dwide"]]
+this_episode_YX <- episode_YX[["episode11"]] # Choose an episode
+this_cohort_YX <- cohort_YX[["cohort11"]]
+
+p.episode_YX <- matching.plot(Dwide = Dwide_YX, c = c, a = a, b = b, type = "episode", this_episode = this_episode_YX)
+p.episode_YX
+p.cohort_YX <- matching.plot(Dwide = Dwide_YX, c = c, a = a, b = b, type = "cohort", this_episode = this_episode_YX, this_cohort = this_cohort_YX)
+p.cohort_YX
+```
+
+## Get the uncertainty estimates
+
+For each episode, we can use `matching.CI` to estimate the treatment effect, then calculate the average. The treatment effect can by either `ATT` or `Dynamic`. For the uncertainty estimates, one can choose `jackknife` or `bootstrap`. For computation, one can choose whether using `parallel`. By default, the package will use 4 cores for the parallel computing.
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+# test matching.CI.R
+alpha <- 0.05
+nsim <- 200
+
+est_jackknife_YX <- matching.CI(sets = episode_YX, 
+                          alpha = alpha, 
+                          estimand = "Dynamic", 
+                          method = "Simple DID", 
+                          vce = "jackknife", 
+                          nsim = nsim,
+                          parallel = TRUE,
+                          cores = 4)
+
+est_bootstrap_YX <- matching.CI(sets = episode_YX, 
+                          alpha = alpha, 
+                          estimand = "Dynamic", 
+                          method = "Simple DID", 
+                          vce = "bootstrap", 
+                          nsim = nsim,
+                          parallel = TRUE,
+                          cores = 4)
+```
+
+## Virsualize the uncertainty estimates
+
+Finally, we can visualize the uncertainty estimates using `matching.CIplot`.
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+matching.CIplot(est_jackknife_YX)
+matching.CIplot(est_bootstrap_YX)
+```
+
+# Example 2: Panel w/o Covariates
+
+We then use an empirical example from @hainmueller2019does, in which the authors investigate the effects of indirect democracy (versus direct democracy) on naturalization rates in Switzerland using municipality-year level panel data from 1991 to 2009. The procedure is exactly the same as Example 1, except that now we need to set X \<- NULL.
+
+## Rename the data
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+data_Y <- hh2019 # data without covariates
+```
+
+## Matching according to the tuning parameter
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+# test matching.R
+Y <- c("nat_rate_ord")
+D <- c("indirect")
+X <- NULL
+index <- c("bfs","year")
+c <- 0
+a <- 3
+b <- 3
+episode_Y <- matching(data = data_Y, Y = Y, D = D, X = X, index = index, c = c, a = a, b = b)
+cohort_Y <- matching(data = data_Y, Y = Y, D = D, X = X, index = index, c = c, a = a, b = b, type = "cohort")
+```
+
+## Visualize the matching results
+
+```{r, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, cache=TRUE}
+# test matching.plot.R
+Dwide_Y <- episode_Y[["wide panel"]][["Dwide"]]
+this_episode_Y <- episode_Y[["episode9"]] # Choose an episode
+this_cohort_Y <- cohort_Y[["cohort9"]]
+
+p.episode7_Y <- matching.plot(Dwide = Dwide_Y, c = c, a = a, b = b, type = "episode", this_episode = this_episode_Y)
+p.episode7_Y
+p.cohort7_Y <- matching.plot(Dwide = Dwide_Y, c = c, a = a, b = b, type = "cohort", this_episode = this_episode_Y, this_cohort = this_cohort_Y)
+p.cohort7_Y
+```
+
+## Get the uncertainty estimates
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+# test matching.CI.R
+alpha <- 0.05
+nsim <- 200
+
+est_jackknife_Y <- matching.CI(sets = episode_Y, 
+                               alpha = alpha, 
+                               estimand = "Dynamic", 
+                               method = "Simple DID", 
+                               vce = "jackknife", 
+                               nsim = nsim,
+                               parallel = TRUE,
+                               cores = 4)
+
+est_bootstrap_Y <- matching.CI(sets = episode_Y, 
+                               alpha = alpha, 
+                               estimand = "Dynamic", 
+                               method = "Simple DID", 
+                               vce = "bootstrap", 
+                               nsim = nsim,
+                               parallel = TRUE,
+                               cores = 4)
+```
+
+## Virsualize the uncertainty estimates
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+matching.CIplot(est_jackknife_Y)
+matching.CIplot(est_bootstrap_Y)
+```
+
+# Reference
